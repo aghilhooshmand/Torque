@@ -42,7 +42,7 @@ If you see the old interface or changes don't appear:
 The app should show:
 1. **Step 0: Grammar** - View grammar rules and generate DSL
 2. **Step 1: DSL String** - Editor for writing DSL programs
-3. **Step 2: Parser** - Shows AST structure
+3. **Step 2: Mapper** - Shows AST structure (maps DSL to AST)
 4. **Step 3: Compiler** - Shows compiled sklearn estimator
 5. **Step 4: Evaluator** - Cross-validation evaluation
 

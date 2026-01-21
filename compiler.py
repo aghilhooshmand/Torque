@@ -309,7 +309,7 @@ def dsl_to_sklearn_estimator(dsl_string: str):
     Returns:
         Compiled sklearn estimator (not fitted)
     """
-    from dsl_parser import parse_dsl_to_ast
+    from dsl_mapper import map_dsl_to_ast as parse_dsl_to_ast
     
     ast = parse_dsl_to_ast(dsl_string)
     est = compile_ast_to_estimator(ast)

@@ -1,0 +1,78 @@
+@startuml
+title Torque DSL - System Architecture
+
+package "Grammar Layer" {
+  [Grammar Definition\n(grammar.py)] as Grammar
+  note right of Grammar
+    Defines production rules for DSL.
+    Can generate random valid DSL programs
+    using grammatical evolution.
+  end note
+}
+
+package "Mapper Layer" {
+  [DSL Mapper\n(dsl_mapper.py)] as Mapper
+  [AST Nodes\n(CallNode, LiteralNode)] as AST
+  Mapper --> AST : produces
+  note right of Mapper
+    Uses pyparsing library to map
+    Torque DSL commands to dict-based AST.
+    Maps DSL commands to scikit-learn.
+    Handles nested function calls,
+    keyword/positional arguments.
+  end note
+}
+
+package "Compiler Layer" {
+  [AST Compiler\n(compiler.py)] as Compiler
+  [Model Registry] as ModelReg
+  [Ensemble Registry] as EnsembleReg
+  Compiler --> ModelReg : uses
+  Compiler --> EnsembleReg : uses
+  note right of Compiler
+    Traverses AST and builds
+    scikit-learn estimators.
+    Handles model-specific constraints
+    (e.g., SVM probability for soft voting).
+  end note
+}
+
+package "Runtime Layer" {
+  [scikit-learn Estimators] as Sklearn
+  note right of Sklearn
+    VotingClassifier, StackingClassifier,
+    BaggingClassifier, AdaBoostClassifier,
+    LogisticRegression, SVC, RandomForest,
+    DecisionTree, GaussianNB
+  end note
+}
+
+package "Application Layer" {
+  [Streamlit App\n(app.py)] as App
+  [Evaluator\n(evaluator.py)] as Eval
+  [Executor\n(executor.py)] as Exec
+  App --> Eval : uses
+  App --> Exec : uses
+}
+
+' Data flow
+Grammar --> Mapper : DSL string
+Mapper --> Compiler : AST (dict)
+Compiler --> Sklearn : Estimator objects
+App --> Grammar : may generate DSL
+App --> Mapper : maps user input
+App --> Compiler : compiles to sklearn
+App --> Sklearn : fits & evaluates
+
+' External dependencies
+cloud "External Libraries" {
+  [pyparsing] as PyParsing
+  [scikit-learn] as SklearnLib
+  [streamlit] as Streamlit
+}
+
+Mapper ..> PyParsing : uses
+Compiler ..> SklearnLib : uses
+App ..> Streamlit : uses
+
+@enduml

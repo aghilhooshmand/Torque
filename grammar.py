@@ -2,231 +2,250 @@
 Grammar definition for DSL generation (for grammatical evolution).
 
 Simple grammar focused on classical ML models for ensemble learning.
+BNF (Backus-Naur Form) style grammar definition.
 """
 
-# Simple grammar for classical ML ensemble learning
-GRAMMAR = {
-    "program": ["ensemble"],
+# BNF-style grammar for classical ML ensemble learning
+# Compatible with BNF Playground (https://bnfplayground.pauliankline.com/)
+# All terminals are quoted as required by the BNF Playground
+GRAMMAR_BNF = """
+<program> ::= <ensemble>
+
+<ensemble> ::= "vote" "(" <models> ";" <ensemble_params> ")"
+             | "vote" "(" <models> ")"
+             | "stack" "(" <models> ";" <ensemble_params> ")"
+             | "stack" "(" <models> ")"
+             | "bag" "(" <model> ";" <ensemble_params> ")"
+             | "bag" "(" <model> ")"
+             | "ada" "(" <model> ";" <ensemble_params> ")"
+             | "ada" "(" <model> ")"
+
+<models> ::= <model>
+           | <model> "," <models>
+
+<model> ::= "LR" "(" <lr_params> ")"
+          | "SVM" "(" <svm_params> ")"
+          | "RF" "(" <rf_params> ")"
+          | "DT" "(" <dt_params> ")"
+          | "NB" "(" <nb_params> ")"
+
+<lr_params> ::= "C" "=" <positive_number>
+              | "C" "=" <positive_number> "," "penalty" "=" <penalty_string>
+              | "penalty" "=" <penalty_string>
+              | "C" "=" <positive_number> "," "max_iter" "=" <int_number>
+              | "C" "=" <positive_number> "," "penalty" "=" <penalty_string> "," "max_iter" "=" <int_number>
+
+<svm_params> ::= "C" "=" <positive_number>
+              | "kernel" "=" <kernel_string>
+              | "C" "=" <positive_number> "," "kernel" "=" <kernel_string>
+              | "C" "=" <positive_number> "," "kernel" "=" <kernel_string> "," "gamma" "=" <gamma_value>
+
+<rf_params> ::= "n_estimators" "=" <int_number>
+             | "max_depth" "=" <int_number>
+             | "criterion" "=" <criterion_string>
+             | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number>
+             | "n_estimators" "=" <int_number> "," "criterion" "=" <criterion_string>
+             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
+             | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
+             | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
+             | "n_estimators" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
+             | "n_estimators" "=" <int_number> "," "min_samples_leaf" "=" <min_samples_leaf_value>
+
+<dt_params> ::= "max_depth" "=" <int_number>
+             | "criterion" "=" <criterion_string>
+             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
+             | "max_depth" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
+             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string> "," "min_samples_split" "=" <min_samples_value>
+             | "max_depth" "=" <int_number> "," "min_samples_leaf" "=" <min_samples_leaf_value>
+
+<nb_params> ::= 
+              | "var_smoothing" "=" <small_number>
+
+<penalty_string> ::= "l1" | "l2" | "elasticnet"
+
+<kernel_string> ::= "rbf" | "linear" | "poly" | "sigmoid"
+
+<criterion_string> ::= "gini" | "entropy" | "log_loss"
+
+<gamma_value> ::= "scale" | "auto" | <positive_number>
+
+<min_samples_value> ::= <int_number> | <min_samples_ratio>
+
+<min_samples_ratio> ::= "0.1" | "0.2" | "0.3" | "0.4" | "0.5"
+
+<min_samples_leaf_value> ::= <int_number> | <min_samples_ratio>
+
+<positive_number> ::= "0.1" | "0.5" | "1.0" | "10" | "50" | "100" | "200"
+
+<small_number> ::= "1e-9" | "1e-8" | "1e-7" | "1e-6"
+
+<ensemble_params> ::= <voting_param>
+                    | <voting_param> "," <split_param>
+                    | <voting_param> "," <cv_param>
+                    | <voting_param> "," <split_param> "," <cv_param>
+                    | <voting_param> "," <split_param> "," <cv_param> "," <scoring_param>
+                    | <final_estimator_param>
+                    | <final_estimator_param> "," <split_param>
+                    | <final_estimator_param> "," <cv_param>
+                    | <final_estimator_param> "," <split_param> "," <cv_param>
+                    | <final_estimator_param> "," <split_param> "," <cv_param> "," <scoring_param>
+                    | <n_estimators_param>
+                    | <n_estimators_param> "," <split_param>
+                    | <n_estimators_param> "," <cv_param>
+                    | <n_estimators_param> "," <split_param> "," <cv_param>
+                    | <n_estimators_param> "," <split_param> "," <cv_param> "," <scoring_param>
+                    | <split_param>
+                    | <cv_param>
+                    | <scoring_param>
+                    | <split_param> "," <cv_param>
+                    | <split_param> "," <cv_param> "," <scoring_param>
+
+<voting_param> ::= "voting" "=" <voting_string>
+
+<voting_string> ::= "hard" | "soft"
+
+<final_estimator_param> ::= "final_estimator" "=" <model_name>
+
+<n_estimators_param> ::= "n_estimators" "=" <int_number>
+
+<model_name> ::= "LR" | "SVM" | "RF" | "DT" | "NB"
+
+<split_param> ::= "test_size" "=" <split_ratio>
+               | "train_size" "=" <split_ratio>
+
+<cv_param> ::= "cv_folds" "=" <int_number>
+
+<scoring_param> ::= "scoring" "=" <score_metric>
+
+<split_ratio> ::= "0.1" | "0.2" | "0.25" | "0.3" | "0.4" | "0.5"
+
+<int_number> ::= "1" | "2" | "3" | "5" | "10" | "50" | "100" | "200"
+
+<score_metric> ::= "accuracy" | "f1" | "precision" | "recall"
+"""
+
+
+def _parse_bnf_grammar(bnf_text):
+    """
+    Parse BNF grammar text into a dictionary format compatible with the existing generator.
     
-    # Top-level ensemble: multiple ensemble types with optional evaluation params
-    "ensemble": [
-        # VotingClassifier - combines multiple models
-        'vote(models; ensemble_params)',
-        'vote(models)',
-        # StackingClassifier - stacks multiple models with a final estimator
-        'stack(models; ensemble_params)',
-        'stack(models)',
-        # BaggingClassifier - single base model with bagging
-        'bag(model; ensemble_params)',
-        'bag(model)',
-        # AdaBoostClassifier - single base model with boosting
-        'ada(model; ensemble_params)',
-        'ada(model)',
-    ],
+    Args:
+        bnf_text: BNF grammar as string
+        
+    Returns:
+        Dictionary mapping non-terminal names to lists of productions
+    """
+    grammar = {}
+    lines = bnf_text.strip().split('\n')
     
-    # One or more base models
-    "models": [
-        "model",
-        'model, models',
-    ],
+    current_rule = None
+    current_productions = []
     
-    # Classical ML models with model-specific parameters
-    "model": [
-        'LR(lr_params)',
-        'SVM(svm_params)',
-        'RF(rf_params)',
-        'DT(dt_params)',
-        'NB(nb_params)',
-    ],
+    for line in lines:
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        
+        # Check if line starts a new rule: <rule_name> ::=
+        if '::=' in line:
+            # Save previous rule if exists
+            if current_rule:
+                grammar[current_rule] = current_productions if current_productions else [""]
+            
+            # Extract rule name
+            parts = line.split('::=')
+            rule_part = parts[0].strip()
+            # Remove < > from rule name
+            rule_name = rule_part.strip('<>').strip()
+            current_rule = rule_name
+            current_productions = []
+            
+            # Check if there's a production on the same line
+            if len(parts) > 1:
+                prod = parts[1].strip()
+                if prod:
+                    current_productions.append(prod)
+                else:
+                    # Empty production
+                    current_productions.append("")
+        
+        # Check if line continues with | (alternative production)
+        elif line.startswith('|'):
+            prod = line[1:].strip()
+            # Allow empty productions (for nb_params)
+            current_productions.append(prod)
+        
+        # Otherwise, it's a continuation of the current production
+        elif current_rule:
+            current_productions[-1] += ' ' + line
     
-    # LR-specific parameters (LogisticRegression in sklearn)
-    # Common params: C (>0), penalty (l1/l2/elasticnet), max_iter (>=1), solver, random_state
-    # Note: penalty='l1' requires solver='liblinear' or 'saga'
-    # Note: penalty='l2' or 'elasticnet' work with lbfgs, newton-cg, sag, saga
-    # For simplicity, we'll use penalty='l2' by default (works with default solver='lbfgs')
-    "lr_params": [
-        'C=positive_number',
-        'C=positive_number, penalty=penalty_string',
-        'penalty=penalty_string',
-        'C=positive_number, max_iter=int_number',
-        'C=positive_number, penalty=penalty_string, max_iter=int_number',
-    ],
+    # Save last rule
+    if current_rule:
+        grammar[current_rule] = current_productions if current_productions else [""]
     
-    # SVM-specific parameters (SVC in sklearn)
-    # Common params: C (>0), kernel (rbf/linear/poly/sigmoid), gamma (scale/auto/positive_number), probability, random_state
-    # Note: kernel='precomputed' is excluded (requires special handling)
-    "svm_params": [
-        'C=positive_number',
-        'kernel=kernel_string',
-        'C=positive_number, kernel=kernel_string',
-        'C=positive_number, kernel=kernel_string, gamma=gamma_value',
-    ],
+    # Split productions that contain | into separate alternatives
+    # This handles cases like: <rule> ::= "a" | "b" | "c"
+    final_grammar = {}
+    for rule_name, productions in grammar.items():
+        final_productions = []
+        for prod in productions:
+            # Split on | but preserve quoted strings
+            # Simple approach: split on | that's not inside quotes
+            parts = []
+            current_part = ""
+            in_quotes = False
+            for char in prod:
+                if char == '"':
+                    in_quotes = not in_quotes
+                    current_part += char
+                elif char == '|' and not in_quotes:
+                    if current_part.strip():
+                        parts.append(current_part.strip())
+                    current_part = ""
+                else:
+                    current_part += char
+            if current_part.strip():
+                parts.append(current_part.strip())
+            
+            if parts:
+                final_productions.extend(parts)
+            else:
+                final_productions.append(prod)
+        
+        final_grammar[rule_name] = final_productions if final_productions else [""]
     
-    # RF-specific parameters (RandomForestClassifier in sklearn)
-    # Common params: n_estimators (>=1 int), max_depth (>=1 int or None), criterion, min_samples_split (>=2 int or (0,1] float), min_samples_leaf (>=1 int or (0,0.5] float)
-    # Note: min_samples_split default=2 (must be >=2 for int), min_samples_leaf default=1 (must be >=1 for int)
-    "rf_params": [
-        'n_estimators=int_number',
-        'max_depth=int_number',
-        'criterion=criterion_string',
-        'n_estimators=int_number, max_depth=int_number',
-        'n_estimators=int_number, criterion=criterion_string',
-        'max_depth=int_number, criterion=criterion_string',
-        'n_estimators=int_number, max_depth=int_number, criterion=criterion_string',
-        'n_estimators=int_number, max_depth=int_number, min_samples_split=min_samples_value',
-        'n_estimators=int_number, min_samples_split=min_samples_value',
-        'n_estimators=int_number, min_samples_leaf=min_samples_leaf_value',
-    ],
+    # Strip quotes from terminals in productions for internal use
+    # This converts "vote" "(" <models> to vote(<models> for DSL generation
+    import re
+    cleaned_grammar = {}
+    for rule_name, productions in final_grammar.items():
+        cleaned_productions = []
+        for prod in productions:
+            # Remove quotes from terminals: "vote" -> vote
+            cleaned = re.sub(r'"([^"]+)"', r'\1', prod)
+            # Remove spaces around punctuation and operators
+            # Remove space before: ( [ { = , ; :
+            cleaned = re.sub(r'\s+([\(\[\{=,;:])', r'\1', cleaned)
+            # Remove space after: ) ] } = , ; :
+            cleaned = re.sub(r'([\)\]\}=,;:])\s+', r'\1', cleaned)
+            # Remove space between word and < (non-terminal)
+            cleaned = re.sub(r'(\w)\s+(<)', r'\1\2', cleaned)
+            # Remove space between > and word
+            cleaned = re.sub(r'(>)\s+(\w)', r'\1\2', cleaned)
+            # Remove space between > and (
+            cleaned = re.sub(r'(>)\s+(\()', r'\1\2', cleaned)
+            # Remove space between ) and <
+            cleaned = re.sub(r'(\))\s+(<)', r'\1\2', cleaned)
+            # Clean up multiple spaces to single space (for cases where we want to keep one)
+            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+            cleaned_productions.append(cleaned)
+        cleaned_grammar[rule_name] = cleaned_productions
     
-    # DT-specific parameters (DecisionTreeClassifier in sklearn)
-    # Common params: max_depth (>=1 int or None), criterion, min_samples_split (>=2 int or (0,1] float), min_samples_leaf (>=1 int or (0,0.5] float)
-    # Note: min_samples_split default=2 (must be >=2 for int), min_samples_leaf default=1 (must be >=1 for int)
-    "dt_params": [
-        'max_depth=int_number',
-        'criterion=criterion_string',
-        'max_depth=int_number, criterion=criterion_string',
-        'max_depth=int_number, min_samples_split=min_samples_value',
-        'max_depth=int_number, criterion=criterion_string, min_samples_split=min_samples_value',
-        'max_depth=int_number, min_samples_leaf=min_samples_leaf_value',
-    ],
-    
-    # NB-specific parameters (GaussianNB in sklearn)
-    # Common params: var_smoothing (usually default is fine)
-    "nb_params": [
-        "",
-        'var_smoothing=small_number',
-    ],
-    
-    # Parameter value types (matching sklearn constraints)
-    "penalty_string": [
-        '"l1"', '"l2"', '"elasticnet"',  # LogisticRegression penalty options (l1 needs liblinear/saga, l2/elasticnet work with multiple solvers)
-    ],
-    
-    "kernel_string": [
-        '"rbf"', '"linear"', '"poly"', '"sigmoid"',  # SVC kernel options (excludes 'precomputed' which needs special handling)
-    ],
-    
-    "criterion_string": [
-        '"gini"', '"entropy"', '"log_loss"',  # RF/DT criterion options (log_loss in sklearn >= 1.3)
-    ],
-    
-    "gamma_value": [
-        '"scale"', '"auto"',  # SVC gamma string options
-        'positive_number',  # SVC gamma numeric options (must be > 0)
-    ],
-    
-    "min_samples_value": [
-        'int_number',  # Integer >= 2 for min_samples_split, >= 1 for min_samples_leaf
-        'min_samples_ratio',  # Float in (0, 1] for min_samples_split or (0, 0.5] for min_samples_leaf
-    ],
-    
-    "min_samples_ratio": [
-        "0.1", "0.2", "0.3", "0.4", "0.5",  # Float ratios for min_samples_split/leaf
-    ],
-    
-    "positive_number": [
-        "0.1", "0.5", "1.0", "10", "50", "100", "200",  # Positive numbers for C, gamma, etc. (> 0)
-    ],
-    
-    "small_number": [
-        "1e-9", "1e-8", "1e-7", "1e-6",  # For var_smoothing in GaussianNB (>= 0)
-    ],
-    
-    # Ensemble-level parameters: different params for different ensemble types
-    "ensemble_params": [
-        # For voting ensembles
-        'voting_param',
-        'voting_param, split_param',
-        'voting_param, cv_param',
-        'voting_param, split_param, cv_param',
-        'voting_param, split_param, cv_param, scoring_param',
-        # For stacking ensembles (final_estimator)
-        'final_estimator_param',
-        'final_estimator_param, split_param',
-        'final_estimator_param, cv_param',
-        'final_estimator_param, split_param, cv_param',
-        'final_estimator_param, split_param, cv_param, scoring_param',
-        # For bagging/ada ensembles (n_estimators)
-        'n_estimators_param',
-        'n_estimators_param, split_param',
-        'n_estimators_param, cv_param',
-        'n_estimators_param, split_param, cv_param',
-        'n_estimators_param, split_param, cv_param, scoring_param',
-        # Generic (no ensemble-specific params)
-        'split_param',
-        'cv_param',
-        'scoring_param',
-        'split_param, cv_param',
-        'split_param, cv_param, scoring_param',
-    ],
-    
-    # VotingClassifier specific parameter
-    # Note: voting must be "hard" or "soft" (not arbitrary strings)
-    "voting_param": [
-        'voting=voting_string',
-    ],
-    
-    "voting_string": [
-        '"hard"', '"soft"',  # VotingClassifier voting options
-    ],
-    
-    # StackingClassifier specific parameter (final estimator)
-    "final_estimator_param": [
-        'final_estimator=model_name',
-    ],
-    
-    # Bagging/AdaBoost specific parameter (number of estimators)
-    "n_estimators_param": [
-        'n_estimators=int_number',
-    ],
-    
-    # Model names for final_estimator in stacking
-    "model_name": [
-        '"LR"', '"SVM"', '"RF"', '"DT"', '"NB"',
-    ],
-    
-    # Train / test split parameters (e.g. test_size=0.2 -> 20/80 split)
-    "split_param": [
-        'test_size=split_ratio',
-        'train_size=split_ratio',
-    ],
-    
-    # Cross‑validation parameters
-    "cv_param": [
-        'cv_folds=int_number',
-    ],
-    
-    # Scoring metric for evaluation
-    "scoring_param": [
-        'scoring=score_metric',
-    ],
-    
-    # Generic numeric values for hyperparameters
-    "number": [
-        "0.1", "0.5", "1.0", "10", "50", "100", "200",
-    ],
-    
-    # Split ratios for train/test
-    "split_ratio": [
-        "0.1", "0.2", "0.25", "0.3", "0.4", "0.5",
-    ],
-    
-    # Integer values (for folds, n_estimators, max_depth, max_iter, min_samples_split, etc.)
-    # These must be integers >= 1 for sklearn parameters
-    "int_number": [
-        "1", "2", "3", "5", "10", "50", "100", "200",
-    ],
-    
-    # String values (kernels, criteria, voting modes, etc.)
-    "string": [
-        '"rbf"', '"linear"', '"poly"', '"hard"', '"soft"', '"gini"', '"entropy"',
-    ],
-    
-    # Scoring metrics for evaluation
-    "score_metric": [
-        '"accuracy"', '"f1"', '"precision"', '"recall"',
-    ],
-}
+    return cleaned_grammar
+
+
+# Parse BNF grammar into dict format for backward compatibility
+GRAMMAR = _parse_bnf_grammar(GRAMMAR_BNF)
 
 
 def generate_dsl_from_grammar(rule="program", max_depth=10, current_depth=0):
@@ -243,10 +262,11 @@ def generate_dsl_from_grammar(rule="program", max_depth=10, current_depth=0):
     """
     # Base case: if we've exceeded max depth, try to return a terminal
     if current_depth >= max_depth:
-        if rule in ["number", "string", "split_ratio", "int_number", "score_metric", "model_name",
-                    "penalty_string", "kernel_string", "criterion_string", "gamma_value", "small_number",
-                    "positive_number", "min_samples_value", "min_samples_ratio", "min_samples_leaf_value",
-                    "min_samples_split_int", "min_samples_leaf_ratio", "voting_string"]:
+        terminal_rules = ["number", "string", "split_ratio", "int_number", "score_metric", "model_name",
+                         "penalty_string", "kernel_string", "criterion_string", "gamma_value", "small_number",
+                         "positive_number", "min_samples_value", "min_samples_ratio", "min_samples_leaf_value",
+                         "min_samples_split_int", "min_samples_leaf_ratio", "voting_string"]
+        if rule in terminal_rules:
             if rule in GRAMMAR:
                 import random
                 choice = random.choice(GRAMMAR[rule])
@@ -267,54 +287,63 @@ def generate_dsl_from_grammar(rule="program", max_depth=10, current_depth=0):
     # Parse the production - handle it as a template
     result = production
     
-    # Find all non-terminals in the production and expand them
+    # Find all non-terminals in the production and expand them recursively
     import re
-    # Find words that are non-terminals (in GRAMMAR)
-    # Match word boundaries to avoid partial matches
-    pattern = r'\b(' + '|'.join(re.escape(k) for k in GRAMMAR.keys()) + r')\b'
+    # Find non-terminals in angle brackets: <non_terminal>
+    pattern = r'<([^>]+)>'
     
-    def replace_non_terminal(match):
-        non_terminal = match.group(1)
-        if current_depth < max_depth:
-            expanded = generate_dsl_from_grammar(non_terminal, max_depth, current_depth + 1)
-            return expanded if expanded else non_terminal
-        return non_terminal
-    
-    # Replace all non-terminals
-    result = re.sub(pattern, replace_non_terminal, result)
+    # Keep expanding until no more non-terminals remain
+    max_iterations = 20
+    iteration = 0
+    while '<' in result and '>' in result and iteration < max_iterations:
+        iteration += 1
+        def replace_non_terminal(match):
+            non_terminal = match.group(1)
+            if current_depth < max_depth:
+                expanded = generate_dsl_from_grammar(non_terminal, max_depth, current_depth + 1)
+                # If expansion failed or still has non-terminals, return as-is for next iteration
+                if not expanded or (expanded == non_terminal and non_terminal not in GRAMMAR):
+                    return f'<{non_terminal}>'
+                return expanded
+            return f'<{non_terminal}>'
+        
+        new_result = re.sub(pattern, replace_non_terminal, result)
+        if new_result == result:
+            break  # No more changes
+        result = new_result
     
     # Handle empty params - if result is empty or just whitespace, return empty
     if result.strip() == "":
         return ""
     
     # Handle special cases: assignments and quoted strings
-    # For assignments like "C=number", we need to expand "number"
+    # For assignments like "C=<number>", we need to expand "<number>"
     # This needs to be recursive to handle nested non-terminals
     def expand_assignments(text, depth=0, max_assign_depth=5):
         if depth >= max_assign_depth:
             return text  # Prevent infinite recursion
-        # Find patterns like "key=non_terminal"
-        pattern = r'(\w+)=(\w+)'
+        # Find patterns like "key=<non_terminal>"
+        pattern = r'(\w+)=<([^>]+)>'
         def replace_assignment(match):
             key = match.group(1)
             value_rule = match.group(2)
             if value_rule in GRAMMAR and current_depth + depth < max_depth:
                 expanded_value = generate_dsl_from_grammar(value_rule, max_depth, current_depth + depth + 1)
                 # If expansion still contains non-terminals, recurse
-                if expanded_value and any(nt in GRAMMAR for nt in expanded_value.split() if nt in GRAMMAR):
+                if expanded_value and '<' in expanded_value and '>' in expanded_value:
                     expanded_value = expand_assignments(expanded_value, depth + 1, max_assign_depth)
                 # Handle empty expansion
                 if expanded_value == "":
                     return ""
                 # Add quotes for string types
-                if value_rule in ["string", "penalty_string", "kernel_string", "criterion_string", "score_metric", "voting_string"]:
+                if value_rule in ["string", "penalty_string", "kernel_string", "criterion_string", "score_metric", "voting_string", "model_name"]:
                     if not expanded_value.startswith('"'):
                         return f'{key}="{expanded_value}"'
                 return f'{key}={expanded_value}'
             return match.group(0)
         new_text = re.sub(pattern, replace_assignment, text)
         # If we made changes and there are still non-terminals, recurse
-        if new_text != text and any(nt in GRAMMAR for nt in new_text.split() if nt in GRAMMAR):
+        if new_text != text and '<' in new_text and '>' in new_text:
             return expand_assignments(new_text, depth + 1, max_assign_depth)
         return new_text
     
@@ -328,7 +357,14 @@ def generate_dsl_from_grammar(rule="program", max_depth=10, current_depth=0):
     result = re.sub(r',\s*\)', ')', result)  # Remove trailing comma
     result = re.sub(r',\s*,', ',', result)  # Remove double commas
     
-    # Remove any remaining quoted non-terminals (like '"rbf"' should become "rbf")
-    result = re.sub(r'"(\w+)"', r'"\1"', result)
+    # Clean up any remaining angle brackets (shouldn't happen, but just in case)
+    # Only remove if the non-terminal is not in grammar (it's a literal)
+    def remove_unexpanded(match):
+        nt = match.group(1)
+        if nt not in GRAMMAR:
+            return nt  # It's a literal, remove brackets
+        return match.group(0)  # Keep brackets if it's a non-terminal we should have expanded
+    
+    result = re.sub(r'<([^>]+)>', remove_unexpanded, result)
     
     return result

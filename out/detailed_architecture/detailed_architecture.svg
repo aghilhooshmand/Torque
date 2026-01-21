@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="1125px" preserveAspectRatio="none" style="width:2487px;height:1125px;" version="1.1" viewBox="0 0 2487 1125" width="2487px" zoomAndPan="magnify"><defs><filter height="300%" id="f12mp1knp6dn5r" width="300%" x="-1" y="-1"><feGaussianBlur result="blurOut" stdDeviation="2.0"/><feColorMatrix in="blurOut" result="blurOut2" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .4 0"/><feOffset dx="4.0" dy="4.0" in="blurOut2" result="blurOut3"/><feBlend in="SourceGraphic" in2="blurOut3" mode="normal"/></filter></defs><g><text fill="#000000" font-family="sans-serif" font-size="18" lengthAdjust="spacing" textLength="361" x="1056.5" y="19.2419">Torque DSL - Detailed System Architecture</text><!--MD5=[a1fe7363db7b0ab934a7630e0aacd9fc]
+cluster Grammar--><polygon fill="#FFFFFF" filter="url(#f12mp1knp6dn5r)" points="16,31.1178,88,31.1178,95,56.1857,728,56.1857,728,728.1178,16,728.1178,16,31.1178" style="stroke:#000000;stroke-width:1.5;"/><line style="stroke:#000000;stroke-width:1.5;" x1="16" x2="95" y1="56.1857" y2="56.1857"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="66" x="20" y="48.0838">Grammar</text><!--MD5=[e012f972f019d0f7836d3226899874dc]
+cluster Parser--><polygon fill="#FFFFFF" filter="url(#f12mp1knp6dn5r)" points="752,268.1178,802,268.1178,809,293.1857,1494,293.1857,1494,1091.6178,752,1091.6178,752,268.1178" style="stroke:#000000;stroke-width:1.5;"/><line style="stroke:#000000;stroke-width:1.5;" x1="752" x2="809" y1="293.1857" y2="293.1857"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="44" x="756" y="285.0838">Parser</text><!--MD5=[a68892f09945723877df40cdc2ddc224]
+cluster Compiler--><polygon fill="#FFFFFF" filter="url(#f12mp1knp6dn5r)" points="1518,540.1178,1587,540.1178,1594,565.1857,2470,565.1857,2470,1118.1178,1518,1118.1178,1518,540.1178" style="stroke:#000000;stroke-width:1.5;"/><line style="stroke:#000000;stroke-width:1.5;" x1="1518" x2="1594" y1="565.1857" y2="565.1857"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="63" x="1522" y="557.0838">Compiler</text><!--MD5=[f1b9accdb39545bff5220a9c5ba12722]
+entity Grammar--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="58.1358" style="stroke:#000000;stroke-width:1.5;" width="154" x="302" y="107.1178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="134" x="312" y="132.0838">Grammar Definition</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="91" x="312" y="151.1517">(grammar.py)</text><!--MD5=[fcbb921f173b1d58926693d3e10c6deb]
+entity Rules--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="134" x="312" y="371.1178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="114" x="322" y="396.0838">Production Rules</text><!--MD5=[ca73e4f6ec3b50150f4a88dd5bb62e34]
+entity Models--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="105" x="32.5" y="634.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="85" x="42.5" y="659.5838">Model Types</text><!--MD5=[0e4ba8352a2d35974728bd8e9abfc2ba]
+entity Ensembles--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="129" x="374.5" y="634.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="109" x="384.5" y="659.5838">Ensemble Types</text><path d="M491.5,69.1178 L491.5,132.1178 L456.09,136.1178 L491.5,140.1178 L491.5,203.0599 A0,0 0 0 0 491.5,203.0599 L712.5,203.0599 A0,0 0 0 0 712.5,203.0599 L712.5,79.1178 L702.5,69.1178 L491.5,69.1178 A0,0 0 0 0 491.5,69.1178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M702.5,69.1178 L702.5,79.1178 L712.5,79.1178 L702.5,69.1178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="57" x="497.5" y="88.0148">Purpose:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="113" x="557.5" y="88.0148">Defines DSL syntax</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="125" x="497.5" y="105.7209">and production rules</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="0" x="500.5" y="123.4269"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="62" x="497.5" y="141.1329">Features:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="141" x="497.5" y="158.8389">- Context-free grammar</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="200" x="497.5" y="176.5449">- Supports grammatical evolution</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="169" x="497.5" y="194.2509">- Generates valid DSL strings</text><path d="M173,596.1178 L173,650.1178 L137.77,654.1178 L173,658.1178 L173,712.3539 A0,0 0 0 0 173,712.3539 L339,712.3539 A0,0 0 0 0 339,712.3539 L339,606.1178 L329,596.1178 L173,596.1178 A0,0 0 0 0 173,596.1178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M329,596.1178 L329,606.1178 L339,606.1178 L329,596.1178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="78" x="179" y="615.0148">Base Models:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="145" x="179" y="632.7209">- LR (LogisticRegression)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="68" x="179" y="650.4269">- SVM (SVC)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="122" x="179" y="668.1329">- RF (RandomForest)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="110" x="179" y="685.8389">- DT (DecisionTree)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="108" x="179" y="703.5449">- NB (GaussianNB)</text><path d="M538.5,604.6178 L538.5,650.1178 L503.66,654.1178 L538.5,658.1178 L538.5,703.1479 A0,0 0 0 0 538.5,703.1479 L711.5,703.1479 A0,0 0 0 0 711.5,703.1479 L711.5,614.6178 L701.5,604.6178 L538.5,604.6178 A0,0 0 0 0 538.5,604.6178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M701.5,604.6178 L701.5,614.6178 L711.5,614.6178 L701.5,604.6178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="118" x="544.5" y="623.5148">Ensemble Methods:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="137" x="544.5" y="641.2209">- vote (VotingClassifier)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="152" x="544.5" y="658.9269">- stack (StackingClassifier)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="143" x="544.5" y="676.6329">- bag (BaggingClassifier)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="150" x="544.5" y="694.3389">- ada (AdaBoostClassifier)</text><!--MD5=[b8966a4a60ec894312d4f55fd40cce21]
+entity Parser--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="58.1358" style="stroke:#000000;stroke-width:1.5;" width="118" x="953" y="361.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="72" x="963" y="386.5838">DSL Parser</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="98" x="963" y="405.6517">(dsl_parser.py)</text><!--MD5=[08a1ea502810d1b4f943eaaceff9dc3a]
+entity PyGrammar--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="154" x="935" y="634.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="134" x="945" y="659.5838">PyParsing Grammar</text><!--MD5=[e6af9b54498f9626a4d612954af2c766]
+entity AST--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="92" x="966" y="829.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="72" x="976" y="854.5838">AST Nodes</text><!--MD5=[d72c5dc8704dd9998da9f73274ce74c3]
+entity CallNodes--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="92" x="768" y="1015.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="72" x="778" y="1040.5838">Call Nodes</text><!--MD5=[f929cf045f784decff4faa7e96fbbc8e]
+entity LiteralNodes--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="109" x="1181.5" y="1015.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="89" x="1191.5" y="1040.5838">Literal Nodes</text><path d="M1106.5,306.1178 L1106.5,386.6178 L1071.25,390.6178 L1106.5,394.6178 L1106.5,475.472 A0,0 0 0 0 1106.5,475.472 L1311.5,475.472 A0,0 0 0 0 1311.5,475.472 L1311.5,316.1178 L1301.5,306.1178 L1106.5,306.1178 A0,0 0 0 0 1106.5,306.1178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M1301.5,306.1178 L1301.5,316.1178 L1311.5,316.1178 L1301.5,306.1178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="57" x="1112.5" y="325.0148">Purpose:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="92" x="1172.5" y="325.0148">Parses DSL text</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="150" x="1112.5" y="342.7209">into Abstract Syntax Tree</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="0" x="1115.5" y="360.4269"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="80" x="1112.5" y="378.1329">Technology:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="101" x="1195.5" y="378.1329">PyParsing library</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="0" x="1115.5" y="395.8389"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="53" x="1112.5" y="413.5449">Process:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="145" x="1112.5" y="431.2509">1. Tokenizes input string</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="155" x="1112.5" y="448.957">2. Matches grammar rules</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="179" x="1112.5" y="466.663">3. Builds dict-based AST nodes</text><path d="M895.5,994.6178 L895.5,1031.1178 L860.09,1035.1178 L895.5,1039.1178 L895.5,1075.4419 A0,0 0 0 0 895.5,1075.4419 L1146.5,1075.4419 A0,0 0 0 0 1146.5,1075.4419 L1146.5,1004.6178 L1136.5,994.6178 L895.5,994.6178 A0,0 0 0 0 895.5,994.6178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M1136.5,994.6178 L1136.5,1004.6178 L1146.5,1004.6178 L1136.5,994.6178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="84" x="901.5" y="1013.5148">Function calls:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="134" x="901.5" y="1031.2209">- Model calls: LR(C=1.0)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="230" x="901.5" y="1048.9269">- Ensemble calls: vote(model1, model2)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="114" x="901.5" y="1066.6329">- Nested structures</text><path d="M1326,994.6178 L1326,1031.1178 L1290.79,1035.1178 L1326,1039.1178 L1326,1075.4419 A0,0 0 0 0 1326,1075.4419 L1478,1075.4419 A0,0 0 0 0 1478,1075.4419 L1478,1004.6178 L1468,994.6178 L1326,994.6178 A0,0 0 0 0 1326,994.6178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M1468,994.6178 L1468,1004.6178 L1478,1004.6178 L1468,994.6178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="81" x="1332" y="1013.5148">Literal values:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="113" x="1332" y="1031.2209">- Numbers: 1.0, 100</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="126" x="1332" y="1048.9269">- Strings: "rbf", "hard"</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="131" x="1332" y="1066.6329">- Booleans: True, False</text><!--MD5=[c01552aeb07e95759ece564214fd0bdc]
+entity Compiler--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="58.1358" style="stroke:#000000;stroke-width:1.5;" width="110" x="1676" y="625.1178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="90" x="1686" y="650.0838">AST Compiler</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="87" x="1686" y="669.1517">(compiler.py)</text><!--MD5=[4e130930a497ea068bb44edbb9769238]
+entity ModelBuilder--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="115" x="1534.5" y="829.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="95" x="1544.5" y="854.5838">Model Builder</text><!--MD5=[45c736251b154a7248aaffb6666316ac]
+entity EnsembleBuilder--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="139" x="1888.5" y="829.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="119" x="1898.5" y="854.5838">Ensemble Builder</text><!--MD5=[4deb7753515de286d568fa33f0a2fe6f]
+entity Registry--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="127" x="1536.5" y="1015.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="107" x="1546.5" y="1040.5838">Registry Lookup</text><!--MD5=[8404609364f0db4bc0d004610372b560]
+entity Estimators--><rect fill="#FEFECE" filter="url(#f12mp1knp6dn5r)" height="39.0679" style="stroke:#000000;stroke-width:1.5;" width="144" x="1886" y="1015.6178"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="124" x="1896" y="1040.5838">sklearn Estimators</text><path d="M1821.5,578.1178 L1821.5,650.1178 L1786,654.1178 L1821.5,658.1178 L1821.5,729.766 A0,0 0 0 0 1821.5,729.766 L2018.5,729.766 A0,0 0 0 0 2018.5,729.766 L2018.5,588.1178 L2008.5,578.1178 L1821.5,578.1178 A0,0 0 0 0 1821.5,578.1178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M2008.5,578.1178 L2008.5,588.1178 L2018.5,588.1178 L2008.5,578.1178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="57" x="1827.5" y="597.0148">Purpose:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="80" x="1887.5" y="597.0148">Compiles AST</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="147" x="1827.5" y="614.7209">to scikit-learn estimators</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="0" x="1830.5" y="632.4269"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacing" textLength="53" x="1827.5" y="650.1329">Process:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="135" x="1827.5" y="667.8389">1. Traverses AST nodes</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="142" x="1827.5" y="685.5449">2. Evaluates parameters</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="137" x="1827.5" y="703.2509">3. Validates constraints</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="176" x="1827.5" y="720.957">4. Instantiates sklearn objects</text><path d="M1685,799.6178 L1685,845.1178 L1649.73,849.1178 L1685,853.1178 L1685,898.1479 A0,0 0 0 0 1685,898.1479 L1853,898.1479 A0,0 0 0 0 1853,898.1479 L1853,809.6178 L1843,799.6178 L1685,799.6178 A0,0 0 0 0 1685,799.6178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M1843,799.6178 L1843,809.6178 L1853,809.6178 L1843,799.6178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="147" x="1691" y="818.5148">Builds individual models:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="133" x="1691" y="836.2209">- Validates parameters</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="126" x="1691" y="853.9269">- Handles constraints</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="139" x="1691" y="871.6329">(e.g., LR penalty/solver)</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="123" x="1691" y="889.3389">- Applies safe kwargs</text><path d="M2062.5,791.1178 L2062.5,845.1178 L2027.77,849.1178 L2062.5,853.1178 L2062.5,907.3539 A0,0 0 0 0 2062.5,907.3539 L2231.5,907.3539 A0,0 0 0 0 2231.5,907.3539 L2231.5,801.1178 L2221.5,791.1178 L2062.5,791.1178 A0,0 0 0 0 2062.5,791.1178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M2221.5,791.1178 L2221.5,801.1178 L2231.5,801.1178 L2221.5,791.1178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="106" x="2068.5" y="810.0148">Builds ensembles:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="130" x="2068.5" y="827.7209">- Recursively compiles</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="95" x="2074.5" y="845.4269">base estimators</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="105" x="2068.5" y="863.1329">- Handles context</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="75" x="2074.5" y="880.8389">propagation</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="148" x="2068.5" y="898.5449">- Manages voting modes</text><path d="M1698.5,968.1178 L1698.5,1031.1178 L1663.55,1035.1178 L1698.5,1039.1178 L1698.5,1102.0599 A0,0 0 0 0 1698.5,1102.0599 L1849.5,1102.0599 A0,0 0 0 0 1849.5,1102.0599 L1849.5,978.1178 L1839.5,968.1178 L1698.5,968.1178 A0,0 0 0 0 1698.5,968.1178 " fill="#FBFB77" filter="url(#f12mp1knp6dn5r)" style="stroke:#A80036;stroke-width:1.0;"/><path d="M1839.5,968.1178 L1839.5,978.1178 L1849.5,978.1178 L1839.5,968.1178 " fill="#FBFB77" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="93" x="1704.5" y="987.0148">Model Registry:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="118" x="1704.5" y="1004.7209">Maps DSL names to</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="87" x="1704.5" y="1022.4269">sklearn classes</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="0" x="1707.5" y="1040.1329"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="113" x="1704.5" y="1057.8389">Ensemble Registry:</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="130" x="1704.5" y="1075.5449">Maps ensemble types</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="103" x="1704.5" y="1093.2509">to sklearn classes</text><!--MD5=[87ea77285e4ac05d5eef6e88682fe007]
+link Grammar to Rules--><path codeLine="11" d="M379,165.5878 C379,215.7678 379,319.0178 379,365.7278 " fill="none" id="Grammar-to-Rules" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="379,370.8778,383,361.8778,379,365.8778,375,361.8778,379,370.8778" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[b6de4db275ce3c98399e65e64949ce0c]
+link Rules to Models--><path codeLine="12" d="M337.21,410.1278 C288.76,433.1978 208.71,476.4578 155,532.1178 C126.92,561.2178 105.74,603.6978 94.37,629.8178 " fill="none" id="Rules-to-Models" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="92.36,634.4878,99.5894,627.7993,94.3348,629.8943,92.2398,624.6397,92.36,634.4878" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[4385b895d9121d546f84047a6fc4c8ac]
+link Rules to Ensembles--><path codeLine="13" d="M383.32,410.4278 C394.02,457.0678 421.77,578.0278 433.57,629.4378 " fill="none" id="Rules-to-Ensembles" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="434.72,634.4778,436.6125,624.8125,433.6051,629.6037,428.8139,626.5963,434.72,634.4778" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[0d6685271e1c7552fbe597b745bd16f1]
+link Parser to PyGrammar--><path codeLine="50" d="M1012,419.8478 C1012,471.7178 1012,581.2378 1012,629.4678 " fill="none" id="Parser-to-PyGrammar" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1012,634.4878,1016,625.4878,1012,629.4878,1008,625.4878,1012,634.4878" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[10c22ad3df56451dffbeab6768b6eee3]
+link PyGrammar to AST--><path codeLine="51" d="M1012,673.6278 C1012,708.8378 1012,785.4378 1012,824.3778 " fill="none" id="PyGrammar-to-AST" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1012,829.3878,1016,820.3878,1012,824.3878,1008,820.3878,1012,829.3878" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[c4b9356037eb70619272b2164bdf1094]
+link AST to CallNodes--><path codeLine="52" d="M989.71,868.8078 C962.72,891.6578 916.15,931.7578 878,968.1178 C863.24,982.1878 847.27,998.6578 834.97,1011.6178 " fill="none" id="AST-to-CallNodes" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="831.28,1015.5278,840.369,1011.7343,834.7144,1011.8939,834.5548,1006.2393,831.28,1015.5278" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[87b1db3dba01a8c9b711b27d6fc17f7d]
+link AST to LiteralNodes--><path codeLine="53" d="M1037.24,868.7178 C1067.81,891.4678 1120.6,931.4878 1164,968.1178 C1180.7,982.2178 1198.83,998.8478 1212.73,1011.8878 " fill="none" id="AST-to-LiteralNodes" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1216.53,1015.4678,1212.7177,1006.3867,1212.889,1012.041,1207.2347,1012.2123,1216.53,1015.4678" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[a131f971cfc9aa9f565774ad817bcf67]
+link Compiler to ModelBuilder--><path codeLine="89" d="M1710.79,683.1778 C1683.08,721.6578 1633.83,790.0478 1608.32,825.4578 " fill="none" id="Compiler-to-ModelBuilder" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1605.33,829.6078,1613.8409,824.6515,1608.2564,825.5537,1607.3542,819.9692,1605.33,829.6078" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[06939d46b2cfb914a0b96cb39bdf4480]
+link Compiler to EnsembleBuilder--><path codeLine="90" d="M1753.99,683.4578 C1767.74,699.6578 1785.99,719.9078 1804,736.1178 C1842.79,771.0478 1892.32,805.4978 1924.58,826.7778 " fill="none" id="Compiler-to-EnsembleBuilder" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1928.82,829.5578,1923.5044,821.2666,1924.6445,826.8074,1919.1037,827.9475,1928.82,829.5578" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[57db3fda0e5f9a22f601c4df4124d493]
+link ModelBuilder to Registry--><path codeLine="91" d="M1592.81,868.7778 C1594.27,902.3878 1597.35,973.0678 1598.96,1010.1878 " fill="none" id="ModelBuilder-to-Registry" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1599.19,1015.4178,1602.7748,1006.2446,1598.9617,1010.423,1594.7832,1006.6099,1599.19,1015.4178" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[47d6d5dd8f3e53f3880ccf80dd8e310e]
+link EnsembleBuilder to Registry--><path codeLine="92" d="M1933.55,868.7078 C1916.67,880.8878 1893.33,896.4578 1871,907.1178 C1790.96,945.3178 1758.95,925.8178 1681,968.1178 C1659.39,979.8378 1637.96,997.6478 1622.58,1011.8078 " fill="none" id="EnsembleBuilder-to-Registry" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1618.8,1015.3278,1628.115,1012.1294,1622.4619,1011.9234,1622.6679,1006.2703,1618.8,1015.3278" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[92886d76db9b04106709aa29946cfea1]
+link ModelBuilder to Estimators--><path codeLine="93" d="M1612.62,868.7078 C1627.21,881.0478 1647.71,896.7978 1668,907.1178 C1750.46,949.0478 1784.21,926.8478 1867,968.1178 C1890.67,979.9178 1914.78,997.7178 1932.23,1011.8578 " fill="none" id="ModelBuilder-to-Estimators" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1936.52,1015.3778,1932.0926,1006.5802,1932.6521,1012.2093,1927.023,1012.7688,1936.52,1015.3778" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[ecb301c8aa751ed3616f9cc6b67134f9]
+link EnsembleBuilder to Estimators--><path codeLine="94" d="M1958,868.7778 C1958,902.3878 1958,973.0678 1958,1010.1878 " fill="none" id="EnsembleBuilder-to-Estimators" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1958,1015.4178,1962,1006.4178,1958,1010.4178,1954,1006.4178,1958,1015.4178" style="stroke:#A80036;stroke-width:1.0;"/><!--MD5=[95f14a3317e89803627f1dbda442309c]
+link Grammar to Parser--><path codeLine="136" d="M412.7,165.3378 C430.05,178.5678 452.12,193.5078 474,203.1178 C579.92,249.6578 618.33,223.2578 728,260.1178 C809.06,287.3678 898.11,330.2278 954.49,359.1078 " fill="none" id="Grammar-to-Parser" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="959.16,361.5078,952.9869,353.8336,954.7139,359.2204,949.3271,360.9474,959.16,361.5078" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="61" x="699" y="248.0148">DSL string</text><!--MD5=[ed40a7008728363d5793a2746bb513bb]
+link Parser to Compiler--><path codeLine="137" d="M1030.04,419.6178 C1043.81,438.5278 1064.55,462.2978 1089,475.1178 C1249.99,559.5178 1320.67,477.3678 1494,532.1178 C1562.92,553.8878 1636.12,594.2378 1682.63,622.3378 " fill="none" id="Parser-to-Compiler" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="1687.04,625.0078,1681.432,616.9115,1682.769,622.4081,1677.2724,623.7451,1687.04,625.0078" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="55" x="1464" y="520.0148">AST (dict)</text><!--MD5=[136dda7538ffe5b6a5119dcacd8e27cf]
+link Compiler to Estimators--><path codeLine="138" d="M1748.46,683.1878 C1761.43,701.4578 1780.83,724.0478 1804,736.1178 C1892.38,782.1378 2183.01,716.4678 2249,791.1178 C2283.15,829.7478 2277.24,863.9878 2249,907.1178 C2201.9,979.0678 2104.14,1010.4878 2034.95,1024.0578 " fill="none" id="Compiler-to-Estimators" style="stroke:#A80036;stroke-width:1.0;"/><polygon fill="#A80036" points="2030.02,1025.0078,2039.6125,1027.2404,2034.9304,1024.0657,2038.1051,1019.3837,2030.02,1025.0078" style="stroke:#A80036;stroke-width:1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacing" textLength="150" x="2273" y="854.5148">sklearn Estimator objects</text><!--MD5=[dacbb3c31c5a94ace92ebed316ff93ff]
+@startuml
+allowmixing
+
+title Torque DSL - Detailed System Architecture
+
+package Grammar {
+  rectangle "Grammar Definition\n(grammar.py)" as Grammar
+  rectangle "Production Rules" as Rules
+  rectangle "Model Types" as Models
+  rectangle "Ensemble Types" as Ensembles
+  
+  Grammar - -> Rules
+  Rules - -> Models
+  Rules - -> Ensembles
+  
+  note right of Grammar
+    **Purpose:** Defines DSL syntax
+    and production rules
+    
+    **Features:**
+    - Context-free grammar
+    - Supports grammatical evolution
+    - Generates valid DSL strings
+  end note
+  
+  note right of Models
+    Base Models:
+    - LR (LogisticRegression)
+    - SVM (SVC)
+    - RF (RandomForest)
+    - DT (DecisionTree)
+    - NB (GaussianNB)
+  end note
+  
+  note right of Ensembles
+    Ensemble Methods:
+    - vote (VotingClassifier)
+    - stack (StackingClassifier)
+    - bag (BaggingClassifier)
+    - ada (AdaBoostClassifier)
+  end note
+}
+
+package Parser {
+  rectangle "DSL Parser\n(dsl_parser.py)" as Parser
+  rectangle "PyParsing Grammar" as PyGrammar
+  rectangle "AST Nodes" as AST
+  rectangle "Call Nodes" as CallNodes
+  rectangle "Literal Nodes" as LiteralNodes
+  
+  Parser - -> PyGrammar
+  PyGrammar - -> AST
+  AST - -> CallNodes
+  AST - -> LiteralNodes
+  
+  note right of Parser
+    **Purpose:** Parses DSL text
+    into Abstract Syntax Tree
+    
+    **Technology:** PyParsing library
+    
+    **Process:**
+    1. Tokenizes input string
+    2. Matches grammar rules
+    3. Builds dict-based AST nodes
+  end note
+  
+  note right of CallNodes
+    Function calls:
+    - Model calls: LR(C=1.0)
+    - Ensemble calls: vote(model1, model2)
+    - Nested structures
+  end note
+  
+  note right of LiteralNodes
+    Literal values:
+    - Numbers: 1.0, 100
+    - Strings: "rbf", "hard"
+    - Booleans: True, False
+  end note
+}
+
+package Compiler {
+  rectangle "AST Compiler\n(compiler.py)" as Compiler
+  rectangle "Model Builder" as ModelBuilder
+  rectangle "Ensemble Builder" as EnsembleBuilder
+  rectangle "Registry Lookup" as Registry
+  rectangle "sklearn Estimators" as Estimators
+  
+  Compiler - -> ModelBuilder
+  Compiler - -> EnsembleBuilder
+  ModelBuilder - -> Registry
+  EnsembleBuilder - -> Registry
+  ModelBuilder - -> Estimators
+  EnsembleBuilder - -> Estimators
+  
+  note right of Compiler
+    **Purpose:** Compiles AST
+    to scikit-learn estimators
+    
+    **Process:**
+    1. Traverses AST nodes
+    2. Evaluates parameters
+    3. Validates constraints
+    4. Instantiates sklearn objects
+  end note
+  
+  note right of ModelBuilder
+    Builds individual models:
+    - Validates parameters
+    - Handles constraints
+    (e.g., LR penalty/solver)
+    - Applies safe kwargs
+  end note
+  
+  note right of EnsembleBuilder
+    Builds ensembles:
+    - Recursively compiles
+      base estimators
+    - Handles context
+      propagation
+    - Manages voting modes
+  end note
+  
+  note right of Registry
+    Model Registry:
+    Maps DSL names to
+    sklearn classes
+    
+    Ensemble Registry:
+    Maps ensemble types
+    to sklearn classes
+  end note
+}
+
+' Main flow
+Grammar - -> Parser : DSL string
+Parser - -> Compiler : AST (dict)
+Compiler - -> Estimators : sklearn Estimator objects
+
+@enduml
+
+@startuml
+allowmixing
+
+title Torque DSL - Detailed System Architecture
+
+package Grammar {
+  rectangle "Grammar Definition\n(grammar.py)" as Grammar
+  rectangle "Production Rules" as Rules
+  rectangle "Model Types" as Models
+  rectangle "Ensemble Types" as Ensembles
+  
+  Grammar - -> Rules
+  Rules - -> Models
+  Rules - -> Ensembles
+  
+  note right of Grammar
+    **Purpose:** Defines DSL syntax
+    and production rules
+    
+    **Features:**
+    - Context-free grammar
+    - Supports grammatical evolution
+    - Generates valid DSL strings
+  end note
+  
+  note right of Models
+    Base Models:
+    - LR (LogisticRegression)
+    - SVM (SVC)
+    - RF (RandomForest)
+    - DT (DecisionTree)
+    - NB (GaussianNB)
+  end note
+  
+  note right of Ensembles
+    Ensemble Methods:
+    - vote (VotingClassifier)
+    - stack (StackingClassifier)
+    - bag (BaggingClassifier)
+    - ada (AdaBoostClassifier)
+  end note
+}
+
+package Parser {
+  rectangle "DSL Parser\n(dsl_parser.py)" as Parser
+  rectangle "PyParsing Grammar" as PyGrammar
+  rectangle "AST Nodes" as AST
+  rectangle "Call Nodes" as CallNodes
+  rectangle "Literal Nodes" as LiteralNodes
+  
+  Parser - -> PyGrammar
+  PyGrammar - -> AST
+  AST - -> CallNodes
+  AST - -> LiteralNodes
+  
+  note right of Parser
+    **Purpose:** Parses DSL text
+    into Abstract Syntax Tree
+    
+    **Technology:** PyParsing library
+    
+    **Process:**
+    1. Tokenizes input string
+    2. Matches grammar rules
+    3. Builds dict-based AST nodes
+  end note
+  
+  note right of CallNodes
+    Function calls:
+    - Model calls: LR(C=1.0)
+    - Ensemble calls: vote(model1, model2)
+    - Nested structures
+  end note
+  
+  note right of LiteralNodes
+    Literal values:
+    - Numbers: 1.0, 100
+    - Strings: "rbf", "hard"
+    - Booleans: True, False
+  end note
+}
+
+package Compiler {
+  rectangle "AST Compiler\n(compiler.py)" as Compiler
+  rectangle "Model Builder" as ModelBuilder
+  rectangle "Ensemble Builder" as EnsembleBuilder
+  rectangle "Registry Lookup" as Registry
+  rectangle "sklearn Estimators" as Estimators
+  
+  Compiler - -> ModelBuilder
+  Compiler - -> EnsembleBuilder
+  ModelBuilder - -> Registry
+  EnsembleBuilder - -> Registry
+  ModelBuilder - -> Estimators
+  EnsembleBuilder - -> Estimators
+  
+  note right of Compiler
+    **Purpose:** Compiles AST
+    to scikit-learn estimators
+    
+    **Process:**
+    1. Traverses AST nodes
+    2. Evaluates parameters
+    3. Validates constraints
+    4. Instantiates sklearn objects
+  end note
+  
+  note right of ModelBuilder
+    Builds individual models:
+    - Validates parameters
+    - Handles constraints
+    (e.g., LR penalty/solver)
+    - Applies safe kwargs
+  end note
+  
+  note right of EnsembleBuilder
+    Builds ensembles:
+    - Recursively compiles
+      base estimators
+    - Handles context
+      propagation
+    - Manages voting modes
+  end note
+  
+  note right of Registry
+    Model Registry:
+    Maps DSL names to
+    sklearn classes
+    
+    Ensemble Registry:
+    Maps ensemble types
+    to sklearn classes
+  end note
+}
+
+Grammar - -> Parser : DSL string
+Parser - -> Compiler : AST (dict)
+Compiler - -> Estimators : sklearn Estimator objects
+
+@enduml
+
+PlantUML version 1.2021.00(Sun Jan 10 10:25:05 GMT 2021)
+(MIT source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>

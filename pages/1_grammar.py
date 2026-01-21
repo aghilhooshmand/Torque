@@ -16,8 +16,8 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from compiler import compile_ast_to_estimator, dsl_to_sklearn_estimator
-from dsl_parser import parse_dsl_to_ast
-from grammar import GRAMMAR, generate_dsl_from_grammar
+from dsl_mapper import map_dsl_to_ast as parse_dsl_to_ast
+from grammar import GRAMMAR, GRAMMAR_BNF, generate_dsl_from_grammar
 
 st.set_page_config(
     page_title="Torque DSL - Grammar",
@@ -102,15 +102,8 @@ with col_grammar_left:
     
     st.markdown("**Grammar Definition (BNF-style):**")
     
-    grammar_display = ""
-    for rule_name, productions in GRAMMAR.items():
-        grammar_display += f"**{rule_name}** →\n"
-        for prod in productions:
-            clean_prod = prod.replace('"("', '(').replace('")"', ')').replace('","', ',')
-            grammar_display += f"  | {clean_prod}\n"
-        grammar_display += "\n"
-    
-    st.code(grammar_display, language="bnf")
+    # Display the BNF grammar directly
+    st.code(GRAMMAR_BNF, language="bnf")
 
 with col_grammar_right:
     st.subheader("📊 Grammar Info")
