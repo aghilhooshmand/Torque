@@ -27,7 +27,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from compiler import dsl_to_sklearn_estimator
-from Torque_Mapper import map_dsl_to_ast as parse_dsl_to_ast
+from Torque_mapper import map_dsl_to_ast as parse_dsl_to_ast
 from evaluator import evaluate_program
 
 st.set_page_config(
