@@ -15,7 +15,7 @@
     "random_state": 42
   },
   "output": {
-    "mapped_json_file": "torque_mapped.json",
-    "metrics_json_file": "torque_results.json"
+    "mapped_json_file": "Torque_mapper_result.json",
+    "metrics_json_file": "Torque_runner_result.json"
   }
 }

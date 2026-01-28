@@ -58,8 +58,7 @@ GRAMMAR_BNF = """
              | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string> "," "min_samples_split" "=" <min_samples_value>
              | "max_depth" "=" <int_number> "," "min_samples_leaf" "=" <min_samples_leaf_value>
 
-<nb_params> ::= 
-              | "var_smoothing" "=" <small_number>
+<nb_params> ::= "var_smoothing" "=" <small_number>
 
 <penalty_string> ::= "l1" | "l2" | "elasticnet"
 

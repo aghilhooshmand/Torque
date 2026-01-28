@@ -317,7 +317,7 @@ class TorqueMapper:
     def export_to_json(
         self,
         torque_command: str,
-        output_file: str = "torque_mapped.json",
+        output_file: str = "Torque_mapper_result.json",
         variable_name: str = "estimator"
     ) -> Dict[str, Any]:
         """
@@ -401,7 +401,7 @@ All settings can be read from a config file, or specified via command-line.
 
 Examples:
   # Using config file (recommended)
-  python Torque_Mapper.py --config mapper_config.json
+  python Torque_mapper.py --config Torque_mapper_config.json
   
   # Using command-line arguments
   python Torque_Mapper.py 'vote(LR(C=1.0), SVM())' -o mapped.json
@@ -509,5 +509,5 @@ Examples:
         print(result['python_code'])
         print("=" * 70)
     
-    print(f"\nUse runner.py to execute the Python code:")
-    print(f"  python runner.py --config runner_config.json")
+    print(f"\nUse Torque_runner.py to execute the Python code:")
+    print(f"  python Torque_runner.py --config Torque_runner_config.json")
