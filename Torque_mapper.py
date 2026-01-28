@@ -5,11 +5,11 @@ This module provides a clean interface to convert Torque DSL strings into
 runnable Python code that uses scikit-learn.
 
 Responsibilities:
-- Convert DSL to AST
+- Parse Torque DSL to AST (embedded pyparsing-based DSL mapper)
 - Convert AST to Python code
 - Export AST and Python code to JSON file
 
-This module does NOT execute code - that's handled by runner.py
+This module does NOT execute code - that's handled by Torque_runner.py.
 
 Example:
     Input:  'vote(LR(C=1.0), SVM(kernel="rbf"); voting="hard")'
@@ -23,7 +23,7 @@ Usage:
     # Convert AST to Python code
     python_code = mapper.ast_to_python(ast)
     # Or export everything to JSON
-    mapper.export_to_json('vote(LR(C=1.0), SVM())', 'output.json')
+    mapper.export_to_json('vote(LR(C=1.0), SVM())', 'Torque_mapper_result.json')
 """
 
 from typing import Dict, List, Any, Tuple, Optional
@@ -32,13 +32,192 @@ import os
 import json
 from datetime import datetime
 
+from pyparsing import (
+    Forward,
+    Group,
+    Keyword,
+    Optional as PPOptional,
+    Suppress,
+    Word,
+    alphanums,
+    alphas,
+    delimitedList,
+    pyparsing_common,
+    quotedString,
+    NotAny,
+)
+
 # Add current directory to path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from dsl_mapper import map_dsl_to_ast
 from registry import MODEL_REGISTRY, ENSEMBLE_REGISTRY
+
+
+# ---------------------------------------------------------------------------
+# Embedded DSL → AST mapper (previously in dsl_mapper.py)
+# ---------------------------------------------------------------------------
+
+class DSLMapper:
+    """Mapper for Torque DSL using pyparsing - maps DSL commands to AST."""
+
+    def __init__(self) -> None:
+        self._setup_grammar()
+
+    def _setup_grammar(self) -> None:
+        """Set up the pyparsing grammar for mapping DSL."""
+        # 1. Basic tokens
+        IDENT = Word(alphas + "_", alphanums + "_")
+        NUMBER = pyparsing_common.number()
+        STRING = quotedString.setParseAction(lambda t: t[0][1:-1])  # Remove quotes
+
+        # Boolean and null literals
+        TRUE = Keyword("True").setParseAction(lambda: True)
+        FALSE = Keyword("False").setParseAction(lambda: False)
+        NULL = Keyword("None").setParseAction(lambda: None)
+
+        # 2. Recursive expression (for nested calls) - must be Forward
+        EXPR = Forward()
+
+        # 3. Keyword argument: key=value
+        KWARG = Group(IDENT("key") + Suppress("=") + EXPR("value"))
+
+        # 4. Argument lists
+        POSARGS_LIST = delimitedList(EXPR)("pos")
+        KWARGS_LIST = delimitedList(KWARG)("kw")
+
+        # 5. Function call patterns - try most specific first
+        # Pattern 1: name(posargs ; kwargs) - ensemble style
+        CALL_PATTERN1 = Group(
+            IDENT("name")
+            + Suppress("(")
+            + POSARGS_LIST
+            + Suppress(";")
+            + KWARGS_LIST
+            + Suppress(")")
+        ).setParseAction(self._make_call_node)
+
+        # Pattern 2: name(kwargs) - model style with only keyword args
+        CALL_PATTERN2 = Group(
+            IDENT("name")
+            + Suppress("(")
+            + KWARGS_LIST
+            + Suppress(")")
+        ).setParseAction(self._make_call_node)
+
+        # Pattern 3: name(posargs) - only positional args
+        CALL_PATTERN3 = Group(
+            IDENT("name")
+            + Suppress("(")
+            + POSARGS_LIST
+            + Suppress(")")
+        ).setParseAction(self._make_call_node)
+
+        # Pattern 4: name() - empty
+        CALL_PATTERN4 = Group(
+            IDENT("name")
+            + Suppress("(")
+            + Suppress(")")
+        ).setParseAction(self._make_call_node)
+
+        # Combine patterns - try in order of specificity
+        CALL = CALL_PATTERN1 | CALL_PATTERN2 | CALL_PATTERN3 | CALL_PATTERN4
+
+        # 6. Atomic values (literals only)
+        ATOM = STRING | NUMBER | TRUE | FALSE | NULL
+
+        # 7. Bare identifier (only if NOT followed by '(' - to avoid conflict with CALL)
+        BARE_IDENT = IDENT + NotAny(Suppress("("))
+        BARE_IDENT.setParseAction(self._make_literal_node)
+
+        # 8. Expression can be a call, atomic value, or bare identifier
+        # IMPORTANT: CALL must come first to handle nested calls like LR(C=1.0)
+        EXPR <<= (CALL | ATOM.setParseAction(self._make_literal_node) | BARE_IDENT)
+
+        self.grammar = EXPR
+
+    def _make_literal_node(self, tokens):
+        """Create a dict-based LiteralNode from mapped tokens."""
+        value = tokens[0]
+        return {
+            "type": "literal",
+            "value": value,
+        }
+
+    def _make_call_node(self, tokens):
+        """Create a dict-based CallNode from mapped tokens."""
+        if len(tokens) == 0:
+            return {"type": "call", "name": "", "pos": [], "kw": {}}
+
+        token_data = tokens[0]
+
+        # Name
+        if hasattr(token_data, "name"):
+            name = token_data.name
+        elif len(token_data) > 0:
+            name = str(token_data[0])
+        else:
+            name = ""
+
+        # Positional arguments
+        pos: List[Any] = []
+        if hasattr(token_data, "pos") and token_data.pos:
+            pos = [item for item in token_data.pos]
+
+        # Keyword arguments
+        kw: Dict[str, Any] = {}
+        if hasattr(token_data, "kw") and token_data.kw:
+            for kwarg in token_data.kw:
+                if hasattr(kwarg, "key") and hasattr(kwarg, "value"):
+                    key = kwarg.key
+                    val = kwarg.value
+                    if hasattr(val, "__len__") and len(val) == 1 and not isinstance(val, str):
+                        value = val[0]
+                    else:
+                        value = val
+                    kw[key] = value
+
+        return {
+            "type": "call",
+            "name": name,
+            "pos": pos,
+            "kw": kw,
+        }
+
+    def map(self, dsl_string: str) -> dict:
+        """
+        Map a DSL string into an AST.
+
+        Args:
+            dsl_string: The Torque DSL command to map
+
+        Returns:
+            dict representing the root of the AST
+        """
+        result = self.grammar.parseString(dsl_string, parseAll=True)
+        if not result:
+            raise ValueError(f"Failed to map DSL: {dsl_string}")
+        return result[0]
+
+
+_DSL_MAPPER: Optional[DSLMapper] = None
+
+
+def map_dsl_to_ast(dsl_string: str) -> dict:
+    """
+    Map a Torque DSL command into a dict-based AST.
+
+    Args:
+        dsl_string: The Torque DSL command to map
+
+    Returns:
+        dict representing the root of the AST (CallNode or LiteralNode structure)
+    """
+    global _DSL_MAPPER
+    if _DSL_MAPPER is None:
+        _DSL_MAPPER = DSLMapper()
+    return _DSL_MAPPER.map(dsl_string)
 
 
 class TorqueMapper:
