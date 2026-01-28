@@ -16,7 +16,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from compiler import compile_ast_to_estimator, dsl_to_sklearn_estimator
-from dsl_mapper import map_dsl_to_ast as parse_dsl_to_ast
+from Torque_Mapper import map_dsl_to_ast as parse_dsl_to_ast
 from grammar import GRAMMAR, GRAMMAR_BNF, generate_dsl_from_grammar
 
 st.set_page_config(

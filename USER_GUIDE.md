@@ -390,8 +390,8 @@ Creates a JSON file (e.g., `Torque_runner_result.json`) containing:
          │
          ▼
 ┌─────────────────┐
-│  dsl_mapper.py  │  ← Uses pyparsing library
-│  (Parser)       │     to parse DSL string
+│ Torque_mapper   │  ← Uses embedded pyparsing
+│ (DSL Parser)    │     to parse DSL string
 └────────┬────────┘
          │
          ▼
@@ -426,8 +426,8 @@ Creates a JSON file (e.g., `Torque_runner_result.json`) containing:
    - Reads JSON config file
    - Extracts `torque_command` and settings
 
-2. **DSL Parsing** (`dsl_mapper.py`)
-   - Uses `pyparsing` library to parse the Torque DSL string
+2. **DSL Parsing** (`Torque_mapper.py` embedded DSL parser)
+   - Uses `pyparsing` library internally to parse the Torque DSL string
    - Recognizes patterns like `vote(...)`, `LR(C=1.0)`, etc.
    - Converts to AST dictionary structure
 
