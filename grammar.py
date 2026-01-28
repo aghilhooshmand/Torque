@@ -8,120 +8,16 @@ BNF (Backus-Naur Form) style grammar definition.
 # BNF-style grammar for classical ML ensemble learning
 # Compatible with BNF Playground (https://bnfplayground.pauliankline.com/)
 # All terminals are quoted as required by the BNF Playground
-GRAMMAR_BNF = """
-<program> ::= <ensemble>
+import os
 
-<ensemble> ::= "vote" "(" <models> ";" <ensemble_params> ")"
-             | "vote" "(" <models> ")"
-             | "stack" "(" <models> ";" <ensemble_params> ")"
-             | "stack" "(" <models> ")"
-             | "bag" "(" <model> ";" <ensemble_params> ")"
-             | "bag" "(" <model> ")"
-             | "ada" "(" <model> ";" <ensemble_params> ")"
-             | "ada" "(" <model> ")"
+_GRAMMAR_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "grammar",
+    "ensamble_grammar.bnf",
+)
 
-<models> ::= <model>
-           | <model> "," <models>
-
-<model> ::= "LR" "(" <lr_params> ")"
-          | "SVM" "(" <svm_params> ")"
-          | "RF" "(" <rf_params> ")"
-          | "DT" "(" <dt_params> ")"
-          | "NB" "(" <nb_params> ")"
-
-<lr_params> ::= "C" "=" <positive_number>
-              | "C" "=" <positive_number> "," "penalty" "=" <penalty_string>
-              | "penalty" "=" <penalty_string>
-              | "C" "=" <positive_number> "," "max_iter" "=" <int_number>
-              | "C" "=" <positive_number> "," "penalty" "=" <penalty_string> "," "max_iter" "=" <int_number>
-
-<svm_params> ::= "C" "=" <positive_number>
-              | "kernel" "=" <kernel_string>
-              | "C" "=" <positive_number> "," "kernel" "=" <kernel_string>
-              | "C" "=" <positive_number> "," "kernel" "=" <kernel_string> "," "gamma" "=" <gamma_value>
-
-<rf_params> ::= "n_estimators" "=" <int_number>
-             | "max_depth" "=" <int_number>
-             | "criterion" "=" <criterion_string>
-             | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number>
-             | "n_estimators" "=" <int_number> "," "criterion" "=" <criterion_string>
-             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
-             | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
-             | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
-             | "n_estimators" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
-             | "n_estimators" "=" <int_number> "," "min_samples_leaf" "=" <min_samples_leaf_value>
-
-<dt_params> ::= "max_depth" "=" <int_number>
-             | "criterion" "=" <criterion_string>
-             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
-             | "max_depth" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
-             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string> "," "min_samples_split" "=" <min_samples_value>
-             | "max_depth" "=" <int_number> "," "min_samples_leaf" "=" <min_samples_leaf_value>
-
-<nb_params> ::= "var_smoothing" "=" <small_number>
-
-<penalty_string> ::= "l1" | "l2" | "elasticnet"
-
-<kernel_string> ::= "rbf" | "linear" | "poly" | "sigmoid"
-
-<criterion_string> ::= "gini" | "entropy" | "log_loss"
-
-<gamma_value> ::= "scale" | "auto" | <positive_number>
-
-<min_samples_value> ::= <int_number> | <min_samples_ratio>
-
-<min_samples_ratio> ::= "0.1" | "0.2" | "0.3" | "0.4" | "0.5"
-
-<min_samples_leaf_value> ::= <int_number> | <min_samples_ratio>
-
-<positive_number> ::= "0.1" | "0.5" | "1.0" | "10" | "50" | "100" | "200"
-
-<small_number> ::= "1e-9" | "1e-8" | "1e-7" | "1e-6"
-
-<ensemble_params> ::= <voting_param>
-                    | <voting_param> "," <split_param>
-                    | <voting_param> "," <cv_param>
-                    | <voting_param> "," <split_param> "," <cv_param>
-                    | <voting_param> "," <split_param> "," <cv_param> "," <scoring_param>
-                    | <final_estimator_param>
-                    | <final_estimator_param> "," <split_param>
-                    | <final_estimator_param> "," <cv_param>
-                    | <final_estimator_param> "," <split_param> "," <cv_param>
-                    | <final_estimator_param> "," <split_param> "," <cv_param> "," <scoring_param>
-                    | <n_estimators_param>
-                    | <n_estimators_param> "," <split_param>
-                    | <n_estimators_param> "," <cv_param>
-                    | <n_estimators_param> "," <split_param> "," <cv_param>
-                    | <n_estimators_param> "," <split_param> "," <cv_param> "," <scoring_param>
-                    | <split_param>
-                    | <cv_param>
-                    | <scoring_param>
-                    | <split_param> "," <cv_param>
-                    | <split_param> "," <cv_param> "," <scoring_param>
-
-<voting_param> ::= "voting" "=" <voting_string>
-
-<voting_string> ::= "hard" | "soft"
-
-<final_estimator_param> ::= "final_estimator" "=" <model_name>
-
-<n_estimators_param> ::= "n_estimators" "=" <int_number>
-
-<model_name> ::= "LR" | "SVM" | "RF" | "DT" | "NB"
-
-<split_param> ::= "test_size" "=" <split_ratio>
-               | "train_size" "=" <split_ratio>
-
-<cv_param> ::= "cv_folds" "=" <int_number>
-
-<scoring_param> ::= "scoring" "=" <score_metric>
-
-<split_ratio> ::= "0.1" | "0.2" | "0.25" | "0.3" | "0.4" | "0.5"
-
-<int_number> ::= "1" | "2" | "3" | "5" | "10" | "50" | "100" | "200"
-
-<score_metric> ::= "accuracy" | "f1" | "precision" | "recall"
-"""
+with open(_GRAMMAR_FILE, "r", encoding="utf-8") as f:
+    GRAMMAR_BNF = f.read()
 
 
 def _parse_bnf_grammar(bnf_text):

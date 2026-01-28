@@ -1,0 +1,40 @@
+{
+  "torque_command": "vote(LR(C=1.0), SVM(kernel=\"rbf\"); voting=\"hard\")",
+  "timestamp": "2026-01-28T10:15:37.455039",
+  "variable_name": "estimator",
+  "ast": {
+    "type": "call",
+    "name": "vote",
+    "pos": [
+      {
+        "type": "call",
+        "name": "LR",
+        "pos": [],
+        "kw": {
+          "C": {
+            "type": "literal",
+            "value": 1.0
+          }
+        }
+      },
+      {
+        "type": "call",
+        "name": "SVM",
+        "pos": [],
+        "kw": {
+          "kernel": {
+            "type": "literal",
+            "value": "rbf"
+          }
+        }
+      }
+    ],
+    "kw": {
+      "voting": {
+        "type": "literal",
+        "value": "hard"
+      }
+    }
+  },
+  "python_code": "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier, RandomForestClassifier\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.svm import SVC\nfrom sklearn.tree import DecisionTreeClassifier\nfrom sklearn.naive_bayes import GaussianNB\n\nbase_estimator_0 = LogisticRegression(C=1.0)\nbase_estimator_1 = SVC(kernel=\"rbf\")\nestimator = VotingClassifier(estimators=[('model_0', base_estimator_0), ('model_1', base_estimator_1)], voting=\"hard\")"
+}
