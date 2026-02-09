@@ -115,7 +115,7 @@ with col_grammar_right:
     st.metric("Total Productions", total_productions)
     
     st.markdown("**Available Models:**")
-    models = ["LR", "SVM", "RF", "DT", "NB"]
+    models = ["LR", "DT", "NB"]
     for model in models:
         st.write(f"- {model}")
     
@@ -170,7 +170,7 @@ with col_gen_right:
         with col_info1:
             st.metric("DSL Length", len(generated))
         with col_info2:
-            model_count = sum(1 for m in ["LR", "SVM", "RF", "DT", "NB"] if m in generated)
+            model_count = sum(1 for m in ["LR", "DT", "NB"] if m in generated)
             st.metric("Models Found", model_count)
         
         if st.button("📋 Copy DSL String", use_container_width=True):
@@ -195,7 +195,7 @@ with col_gen_right:
         st.info("💡 Click 'Generate Random DSL' to create a DSL string from the grammar")
         
         st.markdown("**Example output:**")
-        example = 'vote(LR(C=1.0), SVM(C=1.0, kernel="rbf"); voting="hard")'
+        example = 'vote(LR(C=1.0), DT(max_depth=5); voting="hard")'
         st.code(example, language="python")
         
         st.markdown("---")

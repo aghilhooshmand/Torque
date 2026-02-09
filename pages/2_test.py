@@ -16,6 +16,7 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    mean_absolute_error,
     precision_score,
     recall_score,
 )
@@ -225,7 +226,7 @@ with col_dsl_left:
     # DSL input
     dsl_string = st.text_area(
         "Enter DSL Program",
-        value=st.session_state.get("dsl_string", 'vote(LR(C=1.0), SVM(C=1.0, kernel="rbf"); voting="hard")'),
+        value=st.session_state.get("dsl_string", 'vote(LR(C=1.0), DT(max_depth=5); voting="hard")'),
         height=150,
         key="dsl_editor",
         help="Enter your DSL program here"
@@ -265,6 +266,7 @@ with col_dsl_left:
                     
                     # Calculate metrics
                     accuracy = accuracy_score(y_test, y_pred)
+                    mae = mean_absolute_error(y_test, y_pred)
                     f1 = f1_score(y_test, y_pred, average='weighted')
                     precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
                     recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
@@ -272,6 +274,7 @@ with col_dsl_left:
                     # Store results
                     st.session_state.test_results = {
                         "accuracy": accuracy,
+                        "mae": mae,
                         "f1": f1,
                         "precision": precision,
                         "recall": recall,
@@ -298,12 +301,14 @@ with col_dsl_right:
         # Metrics
         st.markdown("**Performance Metrics:**")
         
-        col_met1, col_met2 = st.columns(2)
+        col_met1, col_met2, col_met3 = st.columns(3)
         with col_met1:
             st.metric("Accuracy", f"{results['accuracy']:.4f}")
-            st.metric("F1 Score", f"{results['f1']:.4f}")
+            st.metric("MAE", f"{results['mae']:.4f}")
         with col_met2:
+            st.metric("F1 Score", f"{results['f1']:.4f}")
             st.metric("Precision", f"{results['precision']:.4f}")
+        with col_met3:
             st.metric("Recall", f"{results['recall']:.4f}")
         
         # Classification report

@@ -113,7 +113,7 @@ def build_model(name: str, kw_nodes: dict, context: dict = None) -> Any:
     return cls(**kw)
 
 
-def build_vote(pos_nodes: list, kw_nodes: dict) -> Any:
+def build_vote(pos_nodes: list, kw_nodes: dict, context: dict = None) -> Any:
     """
     Build a VotingClassifier from AST nodes.
     
@@ -129,12 +129,13 @@ def build_vote(pos_nodes: list, kw_nodes: dict) -> Any:
     voting = eval_value(voting_node)
     
     # Create context for child models
-    context = {"voting": voting}
+    context = {} if context is None else context
+    child_context = {**context, "voting": voting}
     
     # Compile base estimators
     estimators = []
     for i, child_node in enumerate(pos_nodes):
-        est = compile_ast_to_estimator(child_node, context=context)
+        est = compile_ast_to_estimator(child_node, context=child_context)
         estimators.append((f"m{i}", est))
     
     # Get other options (weights, etc.)
@@ -283,7 +284,7 @@ def compile_ast_to_estimator(node: dict, context: dict = None) -> Any:
     
     # Check if it's an ensemble
     if name == "vote":
-        return build_vote(node["pos"], node["kw"])
+        return build_vote(node["pos"], node["kw"], context)
     
     if name == "stack":
         return build_stack(node["pos"], node["kw"], context)

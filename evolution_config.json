@@ -1,0 +1,56 @@
+{
+  "description": "GA/GE/GP and dataset settings for Evolution page. Edit this file to change defaults; UI will load it on page load.",
+  "ga": {
+    "ngen": 50,
+    "pop_size": 50,
+    "elite_size": 1,
+    "halloffame_size": 1,
+    "n_runs": 10,
+    "cxpb": 0.8,
+    "mutpb": 0.05,
+    "tournsize": 7
+  },
+  "ge": {
+    "min_init_tree_depth": 3,
+    "max_init_tree_depth": 7,
+    "max_tree_depth": 35,
+    "max_wraps": 0,
+    "codon_size": 255,
+    "genome_representation": "list",
+    "codon_consumption": "lazy",
+    "min_genome_len": 20,
+    "max_genome_len": 100,
+    "max_genome_length_cap": 0
+  },
+  "dataset": {
+    "file": "data/wine.csv",
+    "target_column": "class",
+    "delimiter": ",",
+    "header": true,
+    "test_size": 0.25,
+    "use_validation_fitness": true,
+    "validation_frac": 0.15,
+    "base_random_state": 42
+  },
+  "bounds": {
+    "ngen": [1, 200],
+    "pop_size": [4, 500],
+    "elite_size": [0, 10],
+    "halloffame_size": [1, 10],
+    "n_runs": [1, 30],
+    "cxpb": [0.0, 1.0],
+    "mutpb": [0.0, 0.5],
+    "tournsize": [2, 15],
+    "min_init_tree_depth": [1, 20],
+    "max_init_tree_depth": [2, 20],
+    "max_tree_depth": [5, 100],
+    "max_wraps": [0, 10],
+    "codon_size": [2, 512],
+    "min_genome_len": [5, 50],
+    "max_genome_len": [20, 500],
+    "max_genome_length_cap": [0, 2000],
+    "test_size": [0.1, 0.5],
+    "validation_frac": [0.1, 0.4],
+    "base_random_state": [0, 99999]
+  }
+}

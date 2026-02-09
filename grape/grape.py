@@ -672,3 +672,107 @@ def selTournamentWithoutInvalids(individuals, k, tournsize, fit_attr="fitness"):
         aspirants = random.sample(valid_individuals, tournsize)
         chosen.append(max(aspirants, key=attrgetter(fit_attr)))
     return chosen
+
+
+# ========== Torque-specific functions (for grammatical evolution of Torque DSL commands) ==========
+# These do not modify any existing code; they are new helpers for the Torque evolution pipeline.
+
+
+def phenotype_torque_from_genome(genome, grammar, max_depth, codon_consumption='lazy'):
+    """
+    Map a genome to a Torque command (phenotype string) using the given BNF grammar.
+    Use this when you need only the phenotype string (Torque DSL command) from a genome,
+    without creating a full Individual.
+
+    :param genome: List (or array) of codons.
+    :param grammar: Grammar instance (BNF loaded from file).
+    :param max_depth: Maximum derivation depth.
+    :param codon_consumption: 'lazy' or 'eager'.
+    :returns: Tuple (phenotype, invalid, used_codons, depth, structure).
+    """
+    if codon_consumption == 'lazy':
+        phenotype, nodes, depth, used_codons, invalid, n_wraps, structure = mapper_lazy(
+            genome, grammar, max_depth)
+    elif codon_consumption == 'eager':
+        phenotype, nodes, depth, used_codons, invalid, n_wraps, structure = mapper_eager(
+            genome, grammar, max_depth)
+    else:
+        raise ValueError("Unknown mapper")
+    return phenotype, invalid, used_codons, depth, structure
+
+
+def individual_torque(genome, grammar, max_depth, codon_consumption='lazy'):
+    """
+    Create a GE individual whose phenotype is a Torque command (DSL string).
+    Same as Individual(genome, grammar, max_depth, codon_consumption); provided
+    with a Torque-specific name for the evolution pipeline.
+
+    :param genome: List (or array) of codons.
+    :param grammar: Grammar instance.
+    :param max_depth: Maximum derivation depth.
+    :param codon_consumption: 'lazy' or 'eager'.
+    :returns: Individual instance with .phenotype (Torque command string), .invalid, etc.
+    """
+    return Individual(genome, grammar, max_depth, codon_consumption)
+
+
+def random_initialisation_torque(pop_size, bnf_grammar, min_init_genome_length, max_init_genome_length,
+                                  max_init_depth, codon_size, codon_consumption,
+                                  genome_representation='list'):
+    """
+    Create an initial population of individuals for Torque evolution using random genomes.
+    Uses the standard Individual class; phenotype of each individual is a Torque command string.
+
+    :param pop_size: Number of individuals.
+    :param bnf_grammar: Grammar instance.
+    :param min_init_genome_length: Minimum initial genome length.
+    :param max_init_genome_length: Maximum initial genome length.
+    :param max_init_depth: Maximum derivation depth.
+    :param codon_size: Maximum codon value (e.g. 255).
+    :param codon_consumption: 'lazy' or 'eager'.
+    :param genome_representation: 'list' or 'numpy'.
+    :returns: List of Individual instances.
+    """
+    return random_initialisation(
+        Individual, pop_size, bnf_grammar,
+        min_init_genome_length, max_init_genome_length,
+        max_init_depth, codon_size, codon_consumption,
+        genome_representation)
+
+
+def sensible_initialisation_torque(pop_size, bnf_grammar, min_init_depth, max_init_depth,
+                                   codon_size, codon_consumption,
+                                   genome_representation='list'):
+    """
+    Create an initial population of individuals for Torque evolution using sensible
+    initialisation (grow/full). Each individual has a valid phenotype (Torque command string).
+
+    :param pop_size: Number of individuals.
+    :param bnf_grammar: Grammar instance.
+    :param min_init_depth: Minimum initial depth.
+    :param max_init_depth: Maximum initial depth.
+    :param codon_size: Maximum codon value.
+    :param codon_consumption: 'lazy' or 'eager'.
+    :param genome_representation: 'list' or 'numpy'.
+    :returns: List of Individual instances.
+    """
+    return sensible_initialisation(
+        Individual, pop_size, bnf_grammar, min_init_depth, max_init_depth,
+        codon_size, codon_consumption, genome_representation)
+
+
+def normalise_torque_phenotype(phenotype_str):
+    """
+    Normalise a phenotype string derived from the BNF so it can be parsed by Torque_mapper.
+    Removes double-quote characters and collapses multiple spaces to a single space.
+    The BNF grammar uses quoted terminals (e.g. "vote", "("); Torque_mapper expects
+    the same tokens without quotes (e.g. vote ( ... ).
+
+    :param phenotype_str: Raw phenotype string from the mapper.
+    :returns: Normalised string suitable for Torque_mapper.dsl_to_ast(...).
+    """
+    if not phenotype_str or not isinstance(phenotype_str, str):
+        return phenotype_str
+    s = phenotype_str.replace('"', '')
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s

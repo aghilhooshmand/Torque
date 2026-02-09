@@ -329,9 +329,8 @@ class TorqueMapper:
         # For simplicity, import all commonly used classes
         # In a production system, you might want to analyze AST and import only what's needed
         import_lines = [
-            "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier, RandomForestClassifier",
+            "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier",
             "from sklearn.linear_model import LogisticRegression",
-            "from sklearn.svm import SVC",
             "from sklearn.tree import DecisionTreeClassifier",
             "from sklearn.naive_bayes import GaussianNB"
         ]
