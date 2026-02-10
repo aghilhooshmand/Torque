@@ -664,12 +664,16 @@ def replace_nth(string, substring, new_substring, nth):
 
 def selTournamentWithoutInvalids(individuals, k, tournsize, fit_attr="fitness"):
     """
-    A simple tournament selection, which avoid invalid individuals.
+    Tournament selection using only valid individuals.
+    If there are fewer valid individuals than tournsize, uses all of them for that tournament.
     """
     chosen = []
     valid_individuals = [i for i in individuals if not i.invalid]
+    if not valid_individuals:
+        return chosen
     while len(chosen) < k:
-        aspirants = random.sample(valid_individuals, tournsize)
+        size = min(tournsize, len(valid_individuals))
+        aspirants = random.sample(valid_individuals, size)
         chosen.append(max(aspirants, key=attrgetter(fit_attr)))
     return chosen
 

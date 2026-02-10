@@ -1,11 +1,11 @@
 {
-  "description": "GA/GE/GP and dataset settings for Evolution page. Edit this file to change defaults; UI will load it on page load.",
+  "description": "GA/GE/GP and dataset settings. See dataset._help for how to use local data vs UCI.",
   "ga": {
-    "ngen": 50,
-    "pop_size": 50,
+    "ngen": 2,
+    "pop_size": 3,
     "elite_size": 1,
     "halloffame_size": 1,
-    "n_runs": 10,
+    "n_runs": 2,
     "cxpb": 0.8,
     "mutpb": 0.05,
     "tournsize": 7
@@ -23,8 +23,10 @@
     "max_genome_length_cap": 0
   },
   "dataset": {
-    "file": "data/wine.csv",
-    "target_column": "class",
+    "_help": "LOCAL: set 'file' and 'target_column'. UCI: set 'uci_id' to a number (e.g. 17); then 'file' is ignored. For UCI with multiple target columns, set 'target_column'. Set uci_id to null to use local file.",
+    "uci_id": null,
+    "file": "data/clinical_breast_cancer_RFC_preprocessed.csv",
+    "target_column": "RFS_STATUS",
     "delimiter": ",",
     "header": true,
     "test_size": 0.25,

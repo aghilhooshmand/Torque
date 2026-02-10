@@ -28,6 +28,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from compiler import dsl_to_sklearn_estimator
+from dataset_loader import build_X_y_from_frames, fetch_uci_data, sample_stratified_by_class
 from Torque_mapper import map_dsl_to_ast as parse_dsl_to_ast
 from evaluator import evaluate_program
 
@@ -48,6 +49,10 @@ if "y" not in st.session_state:
     st.session_state.y = None
 if "test_results" not in st.session_state:
     st.session_state.test_results = None
+if "uci_features" not in st.session_state:
+    st.session_state.uci_features = None
+if "uci_targets" not in st.session_state:
+    st.session_state.uci_targets = None
 
 # ============================================
 # PART 1: Dataset Section
@@ -61,8 +66,13 @@ with col_data_left:
     
     data_source = st.radio(
         "Choose data source",
-        ["Upload CSV", "Create Mock Data (Classification)", "Create Mock Data (Regression)"],
-        horizontal=False
+        [
+            "Upload CSV",
+            "Fetch from UCI ML Repository",
+            "Create Mock Data (Classification)",
+            "Create Mock Data (Regression)",
+        ],
+        horizontal=False,
     )
     
     if data_source == "Upload CSV":
@@ -103,7 +113,81 @@ with col_data_left:
             
             except Exception as e:
                 st.error(f"❌ Error loading file: {e}")
-    
+
+    elif data_source == "Fetch from UCI ML Repository":
+        uci_id = st.number_input(
+            "UCI Dataset ID",
+            min_value=1,
+            max_value=1000,
+            value=17,
+            step=1,
+            key="uci_id_input",
+            help="Numeric ID of the dataset on UCI ML Repository (e.g. 2 = Adult, 17 = Breast Cancer Wisconsin, 31 = Credit-g).",
+        )
+        if st.button("🔍 Fetch from UCI", use_container_width=True, key="uci_fetch_btn"):
+            try:
+                with st.spinner("Fetching dataset from UCI ML Repository..."):
+                    X_df, y_df = fetch_uci_data(int(uci_id))
+                st.session_state.uci_features = X_df
+                st.session_state.uci_targets = y_df
+                st.success(f"✅ Fetched: {X_df.shape[0]} rows, {X_df.shape[1]} features, {y_df.shape[1]} target column(s)")
+            except ImportError as e:
+                st.error(f"❌ {e}")
+            except Exception as e:
+                st.error(f"❌ Error fetching UCI dataset: {e}")
+
+        if st.session_state.uci_features is not None and st.session_state.uci_targets is not None:
+            X_df = st.session_state.uci_features
+            y_df = st.session_state.uci_targets
+            target_col = st.selectbox(
+                "Select Target Column",
+                list(y_df.columns),
+                key="uci_target_select",
+            )
+            feature_cols = st.multiselect(
+                "Select Feature Columns",
+                list(X_df.columns),
+                default=list(X_df.columns),
+                key="uci_feature_select",
+            )
+            pct_per_class = st.slider(
+                "Percent of each class to use",
+                min_value=1,
+                max_value=100,
+                value=100,
+                step=1,
+                key="uci_pct_slider",
+                help="Use this % of each class to reduce dataset size while keeping class balance (stratified sample).",
+            )
+            uci_random_seed = st.number_input(
+                "Random seed for sampling",
+                min_value=0,
+                max_value=99999,
+                value=42,
+                key="uci_sample_seed",
+            )
+            if feature_cols and st.button("📥 Load Dataset", key="uci_load_btn", use_container_width=True):
+                try:
+                    X, y = build_X_y_from_frames(X_df, y_df, target_col, feature_cols)
+                    if pct_per_class < 100:
+                        X, y, kept_idx = sample_stratified_by_class(
+                            X, y, float(pct_per_class), random_state=int(uci_random_seed)
+                        )
+                    else:
+                        kept_idx = np.arange(len(y))
+                    st.session_state.X = X
+                    st.session_state.y = y
+                    st.session_state.target_name = target_col
+                    st.session_state.feature_names = feature_cols
+                    # Build a single DataFrame for preview (same rows as X, y)
+                    df_preview = X_df[feature_cols].copy()
+                    df_preview[target_col] = y_df[target_col].values
+                    df_preview = df_preview.iloc[kept_idx].reset_index(drop=True)
+                    st.session_state.dataset = df_preview
+                    st.success(f"✅ Dataset ready: {X.shape[0]} samples, {X.shape[1]} features")
+                except Exception as e:
+                    st.error(f"❌ Error loading dataset: {e}")
+
     elif "Create Mock Data" in data_source:
         is_classification = "Classification" in data_source
         
@@ -209,7 +293,7 @@ with col_data_right:
             st.write(f"- Unique values: {len(np.unique(st.session_state.y))}")
             st.write(f"- Min: {st.session_state.y.min()}, Max: {st.session_state.y.max()}")
     else:
-        st.info("💡 Upload a CSV file or generate mock data to see preview")
+        st.info("💡 Upload a CSV, fetch from UCI ML Repository, or generate mock data to see preview")
 
 st.markdown("---")
 

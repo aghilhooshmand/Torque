@@ -24,6 +24,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from compiler import compile_ast_to_estimator
+from dataset_loader import load_dataset_from_config
 from grape.grape import (
     Grammar,
     normalise_torque_phenotype,
@@ -82,31 +83,22 @@ if "X" not in st.session_state or "y" not in st.session_state:
     st.session_state.y = None
 
 if st.session_state.X is None or st.session_state.y is None:
-    # Try loading dataset from config
-    if _ds_cfg.get("file") and _ds_cfg.get("target_column"):
+    # Try loading dataset from config (file path or UCI id)
+    if _ds_cfg.get("file") or _ds_cfg.get("uci_id") is not None:
         try:
-            path = _ds_cfg["file"]
-            if not os.path.isabs(path):
-                path = os.path.join(current_dir, path)
-            df = pd.read_csv(path, sep=_ds_cfg.get("delimiter", ","), header=0 if _ds_cfg.get("header", True) else None)
-            target_col = _ds_cfg["target_column"]
-            if target_col not in df.columns:
-                st.error(f"Target column `{target_col}` not found in {_ds_cfg['file']}. Columns: {list(df.columns)}")
-                st.stop()
-            y = df[target_col].values
-            X = df.drop(columns=[target_col]).values
+            X, y, info = load_dataset_from_config(_evolution_cfg, root_dir=current_dir)
             st.session_state.X = X
             st.session_state.y = y
-            st.session_state.target_name = target_col
-            st.session_state.feature_names = list(df.drop(columns=[target_col]).columns)
+            st.session_state.target_name = info.get("target_name")
+            st.session_state.feature_names = info.get("feature_names")
         except Exception as e:
-            st.warning(f"Could not load dataset from config (`dataset.file` = `{_ds_cfg.get('file')}`): {e}")
-            st.info("Load data on the **Test** page (Part 1: Dataset), or set `dataset.file` and `dataset.target_column` in `evolution_config.json`.")
+            st.warning(f"Could not load dataset from config: {e}")
+            st.info("Load data on the **Test** page (Part 1: Dataset), or set `dataset.file` + `dataset.target_column` or `dataset.uci_id` in `evolution_config.json`.")
             if st.button("Go to Test Page", type="primary"):
                 st.switch_page("pages/2_test.py")
             st.stop()
     else:
-        st.warning("📌 Load data on the **Test** page first (Part 1: Dataset), or set **dataset.file** and **dataset.target_column** in `evolution_config.json`.")
+        st.warning("📌 Load data on the **Test** page first (Part 1: Dataset), or set **dataset.file** and **dataset.target_column** (or **dataset.uci_id**) in `evolution_config.json`.")
         st.markdown("Go to **Test Page** to upload a CSV or create mock data.")
         if st.button("Go to Test Page", type="primary"):
             st.switch_page("pages/2_test.py")
@@ -142,7 +134,7 @@ with st.container():
             st.markdown(f"- **Features:** `{', '.join(str(f) for f in feature_names)}`")
         elif feature_names:
             st.markdown(f"- **Features:** {len(feature_names)} columns")
-        st.caption("Data from **Test** page or from **evolution_config.json** (`dataset.file`).")
+        st.caption("Data from **Test** page or from **evolution_config.json** (`dataset.file` or `dataset.uci_id`).")
     with col_grammar:
         st.subheader("Grammar (Evolution)")
         grammar_name = os.path.basename(GRAMMAR_PATH)

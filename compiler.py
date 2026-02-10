@@ -16,7 +16,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from registry import ENSEMBLE_REGISTRY, MODEL_REGISTRY
+from registry import ENSEMBLE_REGISTRY, MODEL_DEFAULTS, MODEL_REGISTRY
 
 
 def eval_value(node: dict) -> Any:
@@ -87,8 +87,9 @@ def build_model(name: str, kw_nodes: dict, context: dict = None) -> Any:
     
     cls = MODEL_REGISTRY[name]
     
-    # Convert AST nodes to Python values
-    kw = {k: eval_value(v) for k, v in kw_nodes.items()}
+    # Start with registry defaults (e.g. LR max_iter=1000), then override from AST
+    kw = dict(MODEL_DEFAULTS.get(name, {}))
+    kw.update({k: eval_value(v) for k, v in kw_nodes.items()})
     
     # Special rule: if soft voting, ensure SVM has probability=True
     if name == "SVM" and context.get("voting") == "soft":
