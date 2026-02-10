@@ -27,10 +27,8 @@ current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from compiler import dsl_to_sklearn_estimator
 from dataset_loader import build_X_y_from_frames, fetch_uci_data, sample_stratified_by_class
-from Torque_mapper import map_dsl_to_ast as parse_dsl_to_ast
-from evaluator import evaluate_program
+from Torque_runner import run_dsl
 
 st.set_page_config(
     page_title="Torque DSL - Test",
@@ -330,47 +328,21 @@ with col_dsl_left:
             st.error("❌ Please enter a DSL program!")
         else:
             try:
-                with st.spinner("Running DSL program..."):
-                    # Parse and compile
-                    ast = parse_dsl_to_ast(dsl_string)
-                    estimator = dsl_to_sklearn_estimator(dsl_string)
-                    
-                    # Split data
-                    X_train, X_test, y_train, y_test = train_test_split(
-                        st.session_state.X,
-                        st.session_state.y,
-                        test_size=test_size,
-                        random_state=random_state,
-                        stratify=st.session_state.y if len(np.unique(st.session_state.y)) > 1 else None
+                with st.spinner("Running Torque DSL via Torque_runner..."):
+                    results_dir = os.path.join(current_dir, "results")
+                    os.makedirs(results_dir, exist_ok=True)
+                    results = run_dsl(
+                        torque_command=dsl_string,
+                        X=st.session_state.X,
+                        y=st.session_state.y,
+                        test_size=float(test_size),
+                        random_state=int(random_state),
+                        mapped_json_file=os.path.join(results_dir, "Torque_mapper_result.json"),
+                        metrics_json_file=os.path.join(results_dir, "Torque_runner_result.json"),
                     )
-                    
-                    # Fit and predict
-                    estimator.fit(X_train, y_train)
-                    y_pred = estimator.predict(X_test)
-                    
-                    # Calculate metrics
-                    accuracy = accuracy_score(y_test, y_pred)
-                    mae = mean_absolute_error(y_test, y_pred)
-                    f1 = f1_score(y_test, y_pred, average='weighted')
-                    precision = precision_score(y_test, y_pred, average='weighted', zero_division=0)
-                    recall = recall_score(y_test, y_pred, average='weighted', zero_division=0)
-                    
-                    # Store results
-                    st.session_state.test_results = {
-                        "accuracy": accuracy,
-                        "mae": mae,
-                        "f1": f1,
-                        "precision": precision,
-                        "recall": recall,
-                        "y_test": y_test,
-                        "y_pred": y_pred,
-                        "estimator": estimator,
-                        "ast": ast
-                    }
-                    
+                    st.session_state.test_results = results
                     st.success("✅ DSL program executed successfully!")
                     st.rerun()
-            
             except Exception as e:
                 st.error(f"❌ Error running DSL: {e}")
                 import traceback
@@ -381,46 +353,54 @@ with col_dsl_right:
     
     if st.session_state.test_results is not None:
         results = st.session_state.test_results
+        metrics = results.get("metrics", {})
         
         # Metrics
-        st.markdown("**Performance Metrics:**")
+        st.markdown("**Performance Metrics (from Torque_runner):**")
         
         col_met1, col_met2, col_met3 = st.columns(3)
         with col_met1:
-            st.metric("Accuracy", f"{results['accuracy']:.4f}")
-            st.metric("MAE", f"{results['mae']:.4f}")
+            if "accuracy" in metrics:
+                st.metric("Accuracy", f"{metrics['accuracy']:.4f}")
+            if "f1_macro" in metrics:
+                st.metric("F1 (macro)", f"{metrics['f1_macro']:.4f}")
         with col_met2:
-            st.metric("F1 Score", f"{results['f1']:.4f}")
-            st.metric("Precision", f"{results['precision']:.4f}")
+            if "precision_macro" in metrics:
+                st.metric("Precision (macro)", f"{metrics['precision_macro']:.4f}")
+            if "recall_macro" in metrics:
+                st.metric("Recall (macro)", f"{metrics['recall_macro']:.4f}")
         with col_met3:
-            st.metric("Recall", f"{results['recall']:.4f}")
+            if "roc_auc" in metrics:
+                st.metric("ROC-AUC", f"{metrics['roc_auc']:.4f}")
         
         # Classification report
-        st.markdown("**Detailed Classification Report:**")
-        report = classification_report(
-            results['y_test'],
-            results['y_pred'],
-            output_dict=True,
-            zero_division=0
-        )
-        st.json(report)
+        class_report = results.get("classification_report")
+        if class_report:
+            st.markdown("**Detailed Classification Report:**")
+            st.json(class_report)
         
         # Confusion matrix
-        st.markdown("**Confusion Matrix:**")
-        cm = confusion_matrix(results['y_test'], results['y_pred'])
-        st.dataframe(pd.DataFrame(cm), use_container_width=True)
+        cm_info = results.get("confusion_matrix")
+        if cm_info:
+            st.markdown("**Confusion Matrix:**")
+            cm = np.array(cm_info.get("matrix", []))
+            labels = cm_info.get("labels", [])
+            if cm.size > 0:
+                df_cm = pd.DataFrame(cm, index=labels, columns=labels)
+                st.dataframe(df_cm, use_container_width=True)
         
         # Model info
+        est_info = results.get("estimator_info", {})
         with st.expander("🔍 Model Information"):
-            st.write(f"**Type:** {type(results['estimator']).__name__}")
-            if hasattr(results['estimator'], 'get_params'):
-                st.write("**Parameters:**")
-                params = results['estimator'].get_params(deep=True)
-                st.json(params)
-        
-        # AST info
-        with st.expander("🌳 AST Structure"):
-            st.json(results['ast'])
+            if est_info:
+                st.json(est_info)
+            source = results.get("source", {})
+            mapping_file = results.get("mapping_file")
+            if source:
+                st.markdown("**Source info:**")
+                st.json(source)
+            if mapping_file:
+                st.markdown(f"- Mapping file: `{mapping_file}`")
     
     else:
         st.info("💡 Enter a DSL program and click 'Run DSL' to see results")

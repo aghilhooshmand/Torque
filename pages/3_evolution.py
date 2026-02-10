@@ -53,7 +53,7 @@ st.title("🧬 Evolution (Grammatical Evolution for Torque)")
 # ---------------------------------------------------------------------------
 # Load evolution config first (so we can load dataset from config if set)
 # ---------------------------------------------------------------------------
-EVOLUTION_CONFIG_PATH = os.path.join(current_dir, "evolution_config.json")
+EVOLUTION_CONFIG_PATH = os.path.join(current_dir, "config", "evolution_config.json")
 
 def _load_evolution_config():
     """Load evolution_config.json; return dict with ga, ge, dataset, bounds. Missing keys use defaults."""
@@ -93,12 +93,12 @@ if st.session_state.X is None or st.session_state.y is None:
             st.session_state.feature_names = info.get("feature_names")
         except Exception as e:
             st.warning(f"Could not load dataset from config: {e}")
-            st.info("Load data on the **Test** page (Part 1: Dataset), or set `dataset.file` + `dataset.target_column` or `dataset.uci_id` in `evolution_config.json`.")
+            st.info("Load data on the **Test** page (Part 1: Dataset), or set `dataset.file` + `dataset.target_column` or `dataset.uci_id` in `config/evolution_config.json`.")
             if st.button("Go to Test Page", type="primary"):
                 st.switch_page("pages/2_test.py")
             st.stop()
     else:
-        st.warning("📌 Load data on the **Test** page first (Part 1: Dataset), or set **dataset.file** and **dataset.target_column** (or **dataset.uci_id**) in `evolution_config.json`.")
+        st.warning("📌 Load data on the **Test** page first (Part 1: Dataset), or set **dataset.file** and **dataset.target_column** (or **dataset.uci_id**) in `config/evolution_config.json`.")
         st.markdown("Go to **Test Page** to upload a CSV or create mock data.")
         if st.button("Go to Test Page", type="primary"):
             st.switch_page("pages/2_test.py")
@@ -134,7 +134,7 @@ with st.container():
             st.markdown(f"- **Features:** `{', '.join(str(f) for f in feature_names)}`")
         elif feature_names:
             st.markdown(f"- **Features:** {len(feature_names)} columns")
-        st.caption("Data from **Test** page or from **evolution_config.json** (`dataset.file` or `dataset.uci_id`).")
+        st.caption("Data from **Test** page or from **config/evolution_config.json** (`dataset.file` or `dataset.uci_id`).")
     with col_grammar:
         st.subheader("Grammar (Evolution)")
         grammar_name = os.path.basename(GRAMMAR_PATH)
@@ -171,11 +171,18 @@ _ge = _evolution_cfg["ge"]
 _ds = _evolution_cfg["dataset"]
 _b = _evolution_cfg["bounds"]
 
+
+def _clamp(value, lo, hi):
+    """Clamp value to [lo, hi] so config defaults outside bounds don't break number_input."""
+    v = int(value) if isinstance(lo, int) else float(value)
+    return max(lo, min(hi, v))
+
+
 # ---------------------------------------------------------------------------
 # Parameters (GE / evolution) — values from evolution_config.json
 # ---------------------------------------------------------------------------
 st.header("1. Evolution parameters")
-st.caption("Fitness = **MAE** (Mean Absolute Error = classification error rate). **Lower is better.** Defaults from `evolution_config.json`.")
+st.caption("Fitness = **MAE** (Mean Absolute Error = classification error rate). **Lower is better.** Defaults from `config/evolution_config.json`.")
 
 with st.expander("Why doesn’t the best phenotype change across generations?"):
     st.markdown("""
@@ -194,37 +201,37 @@ col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     st.subheader("Population & generations")
-    ngen = st.number_input("Generations", min_value=_b["ngen"][0], max_value=_b["ngen"][1], value=int(_ga["ngen"]), step=1)
-    pop_size = st.number_input("Population size", min_value=_b["pop_size"][0], max_value=_b["pop_size"][1], value=int(_ga["pop_size"]), step=2)
-    elite_size = st.number_input("Elite size", min_value=_b["elite_size"][0], max_value=_b["elite_size"][1], value=int(_ga["elite_size"]), step=1)
-    halloffame_size = st.number_input("Hall of fame size", min_value=_b["halloffame_size"][0], max_value=_b["halloffame_size"][1], value=int(_ga["halloffame_size"]), step=1)
-    n_runs = st.number_input("Number of runs (for mean ± STD)", min_value=_b["n_runs"][0], max_value=_b["n_runs"][1], value=int(_ga["n_runs"]), step=1)
+    ngen = st.number_input("Generations", min_value=_b["ngen"][0], max_value=_b["ngen"][1], value=_clamp(_ga["ngen"], _b["ngen"][0], _b["ngen"][1]), step=1)
+    pop_size = st.number_input("Population size", min_value=_b["pop_size"][0], max_value=_b["pop_size"][1], value=_clamp(_ga["pop_size"], _b["pop_size"][0], _b["pop_size"][1]), step=2)
+    elite_size = st.number_input("Elite size", min_value=_b["elite_size"][0], max_value=_b["elite_size"][1], value=_clamp(_ga["elite_size"], _b["elite_size"][0], _b["elite_size"][1]), step=1)
+    halloffame_size = st.number_input("Hall of fame size", min_value=_b["halloffame_size"][0], max_value=_b["halloffame_size"][1], value=_clamp(_ga["halloffame_size"], _b["halloffame_size"][0], _b["halloffame_size"][1]), step=1)
+    n_runs = st.number_input("Number of runs (for mean ± STD)", min_value=_b["n_runs"][0], max_value=_b["n_runs"][1], value=_clamp(_ga["n_runs"], _b["n_runs"][0], _b["n_runs"][1]), step=1)
 
 with col2:
     st.subheader("GA operators")
     cxpb = st.slider("Crossover probability (p_crossover)", _b["cxpb"][0], _b["cxpb"][1], float(_ga["cxpb"]), 0.05)
     mutpb = st.slider("Mutation probability (p_mutation)", _b["mutpb"][0], _b["mutpb"][1], float(_ga["mutpb"]), 0.01, help="Higher values (e.g. 0.05–0.15) help the best phenotype change over generations.")
-    tournsize = st.number_input("Tournament size (tournsize)", min_value=_b["tournsize"][0], max_value=_b["tournsize"][1], value=int(_ga["tournsize"]), step=1)
+    tournsize = st.number_input("Tournament size (tournsize)", min_value=_b["tournsize"][0], max_value=_b["tournsize"][1], value=_clamp(_ga["tournsize"], _b["tournsize"][0], _b["tournsize"][1]), step=1)
 
 with col3:
     st.subheader("GE tree depth")
-    min_init_tree_depth = st.number_input("Min initial tree depth", min_value=_b["min_init_tree_depth"][0], max_value=_b["min_init_tree_depth"][1], value=int(_ge["min_init_tree_depth"]), step=1)
-    max_init_tree_depth = st.number_input("Max initial tree depth", min_value=_b["max_init_tree_depth"][0], max_value=_b["max_init_tree_depth"][1], value=int(_ge["max_init_tree_depth"]), step=1)
-    max_tree_depth = st.number_input("Max tree depth (cut-off)", min_value=_b["max_tree_depth"][0], max_value=_b["max_tree_depth"][1], value=int(_ge["max_tree_depth"]), step=1)
-    max_wraps = st.number_input("Max wraps", min_value=_b["max_wraps"][0], max_value=_b["max_wraps"][1], value=int(_ge["max_wraps"]), step=1)
+    min_init_tree_depth = st.number_input("Min initial tree depth", min_value=_b["min_init_tree_depth"][0], max_value=_b["min_init_tree_depth"][1], value=_clamp(_ge["min_init_tree_depth"], _b["min_init_tree_depth"][0], _b["min_init_tree_depth"][1]), step=1)
+    max_init_tree_depth = st.number_input("Max initial tree depth", min_value=_b["max_init_tree_depth"][0], max_value=_b["max_init_tree_depth"][1], value=_clamp(_ge["max_init_tree_depth"], _b["max_init_tree_depth"][0], _b["max_init_tree_depth"][1]), step=1)
+    max_tree_depth = st.number_input("Max tree depth (cut-off)", min_value=_b["max_tree_depth"][0], max_value=_b["max_tree_depth"][1], value=_clamp(_ge["max_tree_depth"], _b["max_tree_depth"][0], _b["max_tree_depth"][1]), step=1)
+    max_wraps = st.number_input("Max wraps", min_value=_b["max_wraps"][0], max_value=_b["max_wraps"][1], value=_clamp(_ge["max_wraps"], _b["max_wraps"][0], _b["max_wraps"][1]), step=1)
 
 with col4:
     st.subheader("GE genome & runs")
-    codon_size = st.number_input("Codon size", min_value=_b["codon_size"][0], max_value=_b["codon_size"][1], value=int(_ge["codon_size"]), step=1)
+    codon_size = st.number_input("Codon size", min_value=_b["codon_size"][0], max_value=_b["codon_size"][1], value=_clamp(_ge["codon_size"], _b["codon_size"][0], _b["codon_size"][1]), step=1)
     _gr = str(_ge.get("genome_representation", "list"))
     _gr_index = 0 if _gr == "list" else 1
     genome_representation = st.selectbox("Genome representation", options=["list", "array"], index=_gr_index, help="Storage type: list or array")
     _cc = str(_ge.get("codon_consumption", "lazy"))
     _cc_index = 0 if _cc == "lazy" else 1
     codon_consumption = st.selectbox("Codon consumption", options=["lazy", "eager"], index=_cc_index, help="How codons are consumed: lazy or eager")
-    min_genome_len = st.number_input("Min initial genome length", min_value=_b["min_genome_len"][0], max_value=_b["min_genome_len"][1], value=int(_ge["min_genome_len"]), step=1)
-    max_genome_len = st.number_input("Max initial genome length", min_value=_b["max_genome_len"][0], max_value=_b["max_genome_len"][1], value=int(_ge["max_genome_len"]), step=5)
-    max_genome_length_cap = st.number_input("Max genome length (cap, 0=off)", min_value=_b["max_genome_length_cap"][0], max_value=_b["max_genome_length_cap"][1], value=int(_ge["max_genome_length_cap"]), step=50)
+    min_genome_len = st.number_input("Min initial genome length", min_value=_b["min_genome_len"][0], max_value=_b["min_genome_len"][1], value=_clamp(_ge["min_genome_len"], _b["min_genome_len"][0], _b["min_genome_len"][1]), step=1)
+    max_genome_len = st.number_input("Max initial genome length", min_value=_b["max_genome_len"][0], max_value=_b["max_genome_len"][1], value=_clamp(_ge["max_genome_len"], _b["max_genome_len"][0], _b["max_genome_len"][1]), step=5)
+    max_genome_length_cap = st.number_input("Max genome length (cap, 0=off)", min_value=_b["max_genome_length_cap"][0], max_value=_b["max_genome_length_cap"][1], value=_clamp(_ge["max_genome_length_cap"], _b["max_genome_length_cap"][0], _b["max_genome_length_cap"][1]), step=50)
 
 test_size = st.slider("Test split (for train/test metrics)", _b["test_size"][0], _b["test_size"][1], float(_ds["test_size"]), 0.05)
 use_validation_fitness = st.checkbox(
@@ -234,7 +241,7 @@ use_validation_fitness = st.checkbox(
          "Reduces overfitting so the best phenotype can change. If off: fitness = MAE on full training set.",
 )
 validation_frac = st.slider("Validation fraction (of training data)", _b["validation_frac"][0], _b["validation_frac"][1], float(_ds["validation_frac"]), 0.05, disabled=not use_validation_fitness)
-base_random_state = st.number_input("Base random seed (evolution.random_seed)", min_value=_b["base_random_state"][0], max_value=_b["base_random_state"][1], value=int(_ds["base_random_state"]), step=1)
+base_random_state = st.number_input("Base random seed (evolution.random_seed)", min_value=_b["base_random_state"][0], max_value=_b["base_random_state"][1], value=_clamp(_ds["base_random_state"], _b["base_random_state"][0], _b["base_random_state"][1]), step=1)
 
 # ---------------------------------------------------------------------------
 # Fitness: MAE (error) — lower is better. MAE = 1 - accuracy (classification error rate).

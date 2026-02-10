@@ -1,0 +1,1 @@
+{"torque_command":"vote(LR(C=1.0), SVM(kernel=\"rbf\"); voting=\"hard\")","output":{"mapped_json_file":"results/Torque_mapper_result.json"},"variable_name":"estimator","print_code":false}

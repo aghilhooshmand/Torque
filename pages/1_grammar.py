@@ -15,9 +15,10 @@ current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from compiler import compile_ast_to_estimator, dsl_to_sklearn_estimator
 from Torque_mapper import map_dsl_to_ast as parse_dsl_to_ast
 from grammar import GRAMMAR, GRAMMAR_BNF, generate_dsl_from_grammar
+
+GRAMMAR_FILE = os.path.join(current_dir, "grammar", "ensamble_grammar.bnf")
 
 st.set_page_config(
     page_title="Torque DSL - Grammar",
@@ -25,7 +26,23 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("📐 Grammar Definition & DSL Generation")
+st.title("📐 Grammar & DSL Generation")
+
+
+def _read_grammar_file() -> str:
+    """Read the BNF grammar file from disk."""
+    try:
+        with open(GRAMMAR_FILE, "r") as f:
+            return f.read()
+    except Exception:
+        # Fallback to in-memory BNF from grammar module
+        return GRAMMAR_BNF
+
+
+if "grammar_text" not in st.session_state:
+    st.session_state.grammar_text = _read_grammar_file()
+if "grammar_edit_mode" not in st.session_state:
+    st.session_state.grammar_edit_mode = False
 
 # Define tree function at top
 def _build_ast_tree_html(node: dict, level: int = 0, is_last: bool = True, prefix: str = "") -> str:
@@ -98,12 +115,41 @@ st.markdown("**Simple grammar for classical ML ensemble learning**")
 col_grammar_left, col_grammar_right = st.columns([2, 1])
 
 with col_grammar_left:
-    st.subheader("📐 Grammar Rules")
-    
-    st.markdown("**Grammar Definition (BNF-style):**")
-    
-    # Display the BNF grammar directly
-    st.code(GRAMMAR_BNF, language="bnf")
+    st.subheader("📐 Grammar (BNF file)")
+    st.markdown("File: `grammar/ensamble_grammar.bnf`")
+
+    if not st.session_state.grammar_edit_mode:
+        # Read-only, syntax-highlighted view
+        st.code(st.session_state.grammar_text, language="bnf")
+        if st.button("✏️ Edit Grammar", use_container_width=True):
+            st.session_state.grammar_edit_mode = True
+            st.rerun()
+    else:
+        # Editable text area
+        grammar_text = st.text_area(
+            "Edit Grammar (BNF)",
+            value=st.session_state.grammar_text,
+            height=300,
+            key="grammar_editor",
+        )
+        st.session_state.grammar_text = grammar_text
+
+        col_btn_save, col_btn_cancel = st.columns(2)
+        with col_btn_save:
+            if st.button("💾 Save Grammar to File", use_container_width=True):
+                try:
+                    with open(GRAMMAR_FILE, "w") as f:
+                        f.write(st.session_state.grammar_text)
+                    st.session_state.grammar_edit_mode = False
+                    st.success(f"✅ Saved grammar to `{GRAMMAR_FILE}`. Reload app to use updated grammar.")
+                except Exception as e:
+                    st.error(f"❌ Could not save grammar: {e}")
+        with col_btn_cancel:
+            if st.button("↩️ Cancel", use_container_width=True):
+                # Reload from file and exit edit mode
+                st.session_state.grammar_text = _read_grammar_file()
+                st.session_state.grammar_edit_mode = False
+                st.rerun()
 
 with col_grammar_right:
     st.subheader("📊 Grammar Info")

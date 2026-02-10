@@ -21,36 +21,45 @@ st.markdown("---")
 # Navigation
 st.header("📚 Navigation")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.subheader("📐 Grammar")
+    st.subheader("🗺️ Mapper")
     st.markdown("""
-    - View grammar rules for DSL generation
-    - Generate random DSL strings from grammar
-    - See AST tree visualization
+    - Convert Torque DSL to AST
+    - See generated Python / sklearn code
     """)
-    if st.button("Go to Grammar Page", type="primary", use_container_width=True):
-        st.switch_page("pages/1_grammar.py")
+    if st.button("Go to Mapper", type="primary", use_container_width=True):
+        st.switch_page("pages/0_mapper.py")
 
 with col2:
-    st.subheader("🧪 Test DSL")
+    st.subheader("🏃 Runner")
     st.markdown("""
-    - Upload or create datasets
-    - Write and test DSL programs
-    - View performance metrics
+    - Upload / fetch / create datasets
+    - Run Torque DSL commands on data
+    - View detailed ML metrics
     """)
-    if st.button("Go to Test Page", type="primary", use_container_width=True):
+    if st.button("Go to Runner", type="primary", use_container_width=True):
         st.switch_page("pages/2_test.py")
 
 with col3:
-    st.subheader("🧬 Evolution")
+    st.subheader("📐 Grammar")
+    st.markdown("""
+    - View and edit grammar file
+    - Generate random Torque commands
+    - Visualize AST structure
+    """)
+    if st.button("Go to Grammar", type="primary", use_container_width=True):
+        st.switch_page("pages/1_grammar.py")
+
+with col4:
+    st.subheader("🧬 Evolution (GE)")
     st.markdown("""
     - Set GE parameters and number of runs
     - Run grammatical evolution for Torque
     - View stats table and train/test chart (mean ± STD)
     """)
-    if st.button("Go to Evolution Page", type="primary", use_container_width=True):
+    if st.button("Go to Evolution", type="primary", use_container_width=True):
         st.switch_page("pages/3_evolution.py")
 
 st.markdown("---")

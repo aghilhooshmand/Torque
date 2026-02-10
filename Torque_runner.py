@@ -719,7 +719,7 @@ All settings are normally read from a config file.
 
 Examples:
   # Recommended: use config file
-  python Torque_runner.py --config Torque_runner_config.json
+  python Torque_runner.py --config config/Torque_runner_config.json
   
   # (Advanced) Legacy: run with direct arguments is not supported anymore,
   # everything should be in the config file for reproducibility.

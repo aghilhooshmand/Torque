@@ -43,7 +43,7 @@ from deap import base, creator, tools
 
 
 def load_config(path=None):
-    path = path or os.path.join(ROOT, "evolution_config.json")
+    path = path or os.path.join(ROOT, "config", "evolution_config.json")
     with open(path) as f:
         return json.load(f)
 
@@ -166,7 +166,7 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, poin
 
 
 def main():
-    config_path = os.environ.get("EVOLUTION_CONFIG", os.path.join(ROOT, "evolution_config.json"))
+    config_path = os.environ.get("EVOLUTION_CONFIG", os.path.join(ROOT, "config", "evolution_config.json"))
     print("Loading config:", config_path)
     cfg = load_config(config_path)
 

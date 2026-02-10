@@ -45,6 +45,7 @@ from pyparsing import (
     pyparsing_common,
     quotedString,
     NotAny,
+    ParseException,
 )
 
 # Add current directory to path for imports
@@ -188,16 +189,26 @@ class DSLMapper:
     def map(self, dsl_string: str) -> dict:
         """
         Map a DSL string into an AST.
-
+        
         Args:
             dsl_string: The Torque DSL command to map
-
+        
         Returns:
             dict representing the root of the AST
         """
-        result = self.grammar.parseString(dsl_string, parseAll=True)
+        try:
+            result = self.grammar.parseString(dsl_string, parseAll=True)
+        except ParseException as e:
+            # Build a helpful syntax error message with line/column and pointer
+            line = e.line or dsl_string
+            col = e.col or 1
+            pointer = " " * (col - 1) + "^"
+            # e.msg is a short description like "Expected ')'"
+            msg = f"Syntax error at column {col}: {e.msg}"
+            raise ValueError(f"{msg}\n\n{line}\n{pointer}") from e
+        
         if not result:
-            raise ValueError(f"Failed to map DSL: {dsl_string}")
+            raise ValueError(f"Failed to map DSL (empty parse result).")
         return result[0]
 
 
@@ -579,7 +590,7 @@ All settings can be read from a config file, or specified via command-line.
 
 Examples:
   # Using config file (recommended)
-  python Torque_mapper.py --config Torque_mapper_config.json
+  python Torque_mapper.py --config config/Torque_mapper_config.json
   
   # Using command-line arguments
   python Torque_Mapper.py 'vote(LR(C=1.0), SVM())' -o mapped.json
@@ -688,4 +699,4 @@ Examples:
         print("=" * 70)
     
     print(f"\nUse Torque_runner.py to execute the Python code:")
-    print(f"  python Torque_runner.py --config Torque_runner_config.json")
+    print(f"  python Torque_runner.py --config config/Torque_runner_config.json")
