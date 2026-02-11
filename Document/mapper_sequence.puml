@@ -1,0 +1,27 @@
+@startuml
+title Mapper sequence - User maps Torque DSL to AST & Python
+
+actor User
+participant "Browser\n(Streamlit UI)" as Browser
+participant "Mapper Page\n0_mapper.py" as MapperUI
+participant "TorqueMapper\nTorque_mapper.py" as TM
+database "Grammar BNF\nensamble_grammar.bnf" as Grammar
+
+User -> Browser: Open Mapper page
+Browser -> MapperUI: render()
+
+User -> MapperUI: Enter Torque DSL\nand click \"Map to AST & Python\"
+MapperUI -> TM: dsl_to_ast(dsl_string)
+TM -> Grammar: load BNF rules (on import)
+Grammar --> TM: rules
+TM --> MapperUI: AST dict
+
+MapperUI -> TM: map_to_python(dsl_string)
+TM --> MapperUI: generated Python code\n(estimator = ...)
+
+MapperUI --> User: Show AST (JSON + tree)\nShow generated Python code
+User -> MapperUI: (optional) Save mapping JSON
+MapperUI --> User: Confirm saved\nresults/Torque_mapper_result.json
+
+@enduml
+

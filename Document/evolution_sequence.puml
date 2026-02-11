@@ -1,0 +1,36 @@
+@startuml
+title Evolution sequence - Grammatical Evolution runs for Torque DSL
+
+actor User
+participant "Browser\n(Streamlit UI)" as Browser
+participant "Evolution Page\n3_evolution.py" as EvoUI
+participant "Dataset Loader\ndataset_loader.py" as Loader
+participant "Grammar (BNF)\nensamble_grammar.bnf" as GrammarFile
+participant "GE Grammar\nGrammar class" as BNFGrammar
+participant "GE Algorithms\ngrape.algorithms" as GE
+participant "TorqueMapper\nTorque_mapper.py" as TM
+participant "Compiler\ncompiler.py" as Compiler
+
+User -> Browser: Open Evolution page
+Browser -> EvoUI: render()
+
+EvoUI -> Loader: load_dataset_from_config(evolution_config)\n(if X, y not in session state)
+Loader --> EvoUI: X, y, data_info
+
+User -> EvoUI: Set GA/GE parameters\nand click \"Run evolution\"
+EvoUI -> BNFGrammar: Grammar(GRAMMAR_PATH)
+BNFGrammar --> GrammarFile: read BNF
+
+loop for each run
+  EvoUI -> GE: ge_eaSimpleWithElitism_torque(\n  population, toolbox, params, grammar,...)
+  GE -> TM: normalise_torque_phenotype\n+ Torque DSL mapping\n(per individual)
+  TM -> Compiler: compile_ast_to_estimator(AST)
+  Compiler --> GE: sklearn estimator
+  GE --> EvoUI: logbook, halloffame
+end
+
+EvoUI --> User: Show per-run tables,\nchart and best individual
+EvoUI -> FileSystem: write results/\nconfig.json, generations.csv,\naveraged_across_runs.csv, chart.html
+
+@enduml
+

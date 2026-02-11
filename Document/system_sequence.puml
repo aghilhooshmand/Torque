@@ -1,0 +1,33 @@
+@startuml
+title System sequence - User journey across Mapper, Runner, Evolution
+
+actor User
+participant "Browser\n(Streamlit UI)" as Browser
+participant "Home Page\napp.py" as Home
+participant "Mapper Page\n0_mapper.py" as MapperUI
+participant "Runner Page\n2_test.py" as RunnerUI
+participant "Evolution Page\n3_evolution.py" as EvoUI
+
+User -> Browser: Open Torque app
+Browser -> Home: render()
+
+== Mapper ==
+User -> Home: Click \"Go to Mapper\"
+Home -> MapperUI: st.switch_page(\"0_mapper.py\")
+Browser -> MapperUI: render()
+User -> MapperUI: Map Torque DSL\n(view AST + Python code)
+
+== Runner ==
+User -> Home: Click \"Go to Runner\"
+Home -> RunnerUI: st.switch_page(\"2_test.py\")
+Browser -> RunnerUI: render()
+User -> RunnerUI: Load dataset\nand run Torque DSL\n(view metrics)
+
+== Evolution ==
+User -> Home: Click \"Go to Evolution\"
+Home -> EvoUI: st.switch_page(\"3_evolution.py\")
+Browser -> EvoUI: render()
+User -> EvoUI: Set GA/GE params,\nrun Grammatical Evolution\n(view per-run stats + chart)
+
+@enduml
+

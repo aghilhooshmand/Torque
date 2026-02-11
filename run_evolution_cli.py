@@ -287,9 +287,11 @@ def main():
     avg_rows = [{"gen": g, "train_min_mean": train_min_mean_list[g] if g < len(train_min_mean_list) else None, "test_mean": test_mean_list[g] if g < len(test_mean_list) else None} for g in range(ngen_actual)]
     pd.DataFrame(avg_rows).to_csv(os.path.join(out_dir, "averaged_across_runs.csv"), index=False)
 
-    # Save chart.html (same as GUI)
+    # Save chart.html (3 panels: config, chart, best individual)
     try:
         import plotly.graph_objects as go
+        from html import escape as html_escape
+
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=gens, y=train_avg_mean, name="Train MAE (avg over population, mean over runs)", line=dict(color="red", width=2), mode="lines"))
         avg_upper = train_avg_mean + train_avg_std
@@ -301,6 +303,7 @@ def main():
         te_upper = test_mean_arr + test_std_arr
         te_lower = test_mean_arr - test_std_arr
         fig.add_trace(go.Scatter(x=gens + gens[::-1], y=np.concatenate([te_upper, te_lower[::-1]]), fill="toself", fillcolor="rgba(0,128,0,0.15)", line=dict(color="rgba(255,255,255,0)"), showlegend=False))
+
         fig.update_layout(
             title="MAE (error) across generations — train (min/avg/max) and test, mean ± std over runs",
             xaxis_title="Generation",
@@ -309,7 +312,59 @@ def main():
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             template="plotly_white",
         )
-        fig.write_html(os.path.join(out_dir, "chart.html"))
+
+        chart_div = fig.to_html(full_html=False, include_plotlyjs="cdn")
+
+        dataset_source = ds.get("file") or (f"UCI id={ds.get('uci_id')}" if ds.get("uci_id") is not None else "N/A")
+        dataset_target = ds.get("target_column")
+        config_lines = [
+            f"Dataset: {dataset_source}",
+            f"Target column: {dataset_target}",
+            f"samples={n_samples}, features={n_features}, classes={len(np.unique(y))}",
+            f"GA: ngen={params['ngen']}, pop_size={params['pop_size']}, elite={params['elite_size']}, halloffame={params['halloffame_size']}, n_runs={n_runs}",
+            f"GE: max_tree_depth={params['max_tree_depth']}, codon_size={params['codon_size']}, genome_len=[{params['min_genome_len']},{params['max_genome_len']}]",
+            f"Splits: test_size={test_size}, use_validation={use_validation}, val_frac={validation_frac if use_validation else 'N/A'}, base_seed={base_seed}",
+        ]
+        config_text = "\n".join(config_lines)
+
+        if best_per_run:
+            phenotype_str = getattr(last_best, "phenotype", "") or ""
+            best_lines = [f"Phenotype: {phenotype_str}"]
+        else:
+            best_lines = ["No best individual recorded."]
+        best_text = "\n".join(best_lines)
+
+        page_html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8'/>
+  <title>Torque Evolution - Chart</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 20px; background: #f7f7f7; }}
+    .panel {{ background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }}
+    .panel h2 {{ margin-top: 0; }}
+    pre {{ white-space: pre-wrap; font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 13px; }}
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h2>Config</h2>
+    <pre>{html_escape(config_text)}</pre>
+  </div>
+  <div class="panel">
+    <h2>Evolution Chart</h2>
+    {chart_div}
+  </div>
+  <div class="panel">
+    <h2>Best Individual (last run)</h2>
+    <pre>{html_escape(best_text)}</pre>
+  </div>
+</body>
+</html>
+"""
+
+        with open(os.path.join(out_dir, "chart.html"), "w", encoding="utf-8") as f:
+            f.write(page_html)
         print("Chart saved: chart.html")
     except Exception as e:
         print("Could not save chart.html:", e)

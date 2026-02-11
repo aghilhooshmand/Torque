@@ -1,0 +1,54 @@
+@startuml
+title Runner system architecture
+
+actor User
+
+package "Client" {
+  [Web Browser] as Browser
+}
+
+package "Torque App (Streamlit)" {
+  [Home Page\napp.py] as Home
+  [Runner Page\n2_test.py] as RunnerUI
+}
+
+package "Execution Engine" {
+  [TorqueRunner\nTorque_runner.py] as TR
+  [TorqueMapper\nTorque_mapper.py] as TM
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+}
+
+package "Data Layer" {
+  [Dataset Loader\ndataset_loader.py] as Loader
+  [CSV Files\n(data/*.csv)] as CSV
+  [UCI ML Repository] as UCI
+}
+
+package "Results" {
+  [JSON Metrics\nresults/Torque_runner_result.json] as MetricsJSON
+  [Mapping JSON\nresults/Torque_mapper_result.json] as MappingJSON
+}
+
+User --> Browser : open Torque app
+Browser --> Home : load
+Home --> RunnerUI : switch_page(\"2_test.py\")
+
+Browser --> RunnerUI : select dataset,\nenter Torque DSL, click \"Run DSL\"
+RunnerUI --> Loader : load / sample data
+Loader --> CSV
+Loader --> UCI
+Loader --> RunnerUI : X, y
+
+RunnerUI --> TR : run_dsl(dsl, X, y,\n mapped_json_file, metrics_json_file)
+TR --> TM : map DSL to Python code
+TM --> Compiler
+Compiler --> Registry
+
+TR --> MetricsJSON : write metrics JSON
+TR --> MappingJSON : write mapping JSON
+TR --> RunnerUI : results in memory
+RunnerUI --> Browser : show metrics,\nconfusion matrix, reports
+
+@enduml
+

@@ -1,0 +1,31 @@
+@startuml
+title Runner structure - main components
+
+package "UI" {
+  [Runner Page\n2_test.py] as RunnerUI
+}
+
+package "Data" {
+  [Dataset Loader\ndataset_loader.py] as Loader
+  [CSV / UCI Data] as DataSource
+}
+
+package "Core Execution" {
+  [TorqueRunner\nTorque_runner.py] as TR
+  [TorqueMapper\nTorque_mapper.py] as TM
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+}
+
+RunnerUI --> Loader : build_X_y_from_frames,\nfetch_ucirepo, sample_stratified_by_class
+Loader --> DataSource
+
+RunnerUI --> TR : run_dsl(dsl, X, y)
+TR --> TM : export_to_json(dsl)
+TM --> Compiler : compile nested AST
+Compiler --> Registry : MODEL_REGISTRY\nENSEMBLE_REGISTRY
+
+TR --> RunnerUI : metrics JSON\n(confusion matrix, reports)
+
+@enduml
+

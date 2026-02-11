@@ -1,0 +1,29 @@
+@startuml
+title Runner sequence - User runs Torque DSL on dataset
+
+actor User
+participant "Browser\n(Streamlit UI)" as Browser
+participant "Runner Page\n2_test.py" as RunnerUI
+participant "Dataset Loader\ndataset_loader.py" as Loader
+participant "TorqueRunner\nTorque_runner.py" as TR
+participant "TorqueMapper\nTorque_mapper.py" as TM
+
+User -> Browser: Open Runner page
+Browser -> RunnerUI: render()
+
+User -> RunnerUI: Select dataset source\n(Upload / UCI / Mock)
+RunnerUI -> Loader: load_dataset_from_config /\nfetch_uci_data / build_X_y_from_frames\n+ sample_stratified_by_class
+Loader --> RunnerUI: X, y, dataset preview
+
+User -> RunnerUI: Enter Torque DSL\nand click \"Run DSL\"
+RunnerUI -> TR: run_dsl(dsl, X, y,\n mapped_json_file, metrics_json_file)
+TR -> TM: export_to_json(dsl)\n(DSL → AST → Python code)
+TM --> TR: mapping JSON file
+TR -> TR: execute Python code\ncreate sklearn estimator
+TR -> TR: train / test split,\nfit, predict, compute metrics
+TR --> RunnerUI: results dict\n(metrics, confusion matrix, reports)
+
+RunnerUI --> User: Show metrics,\nconfusion matrix, reports
+
+@enduml
+

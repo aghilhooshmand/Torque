@@ -1,0 +1,64 @@
+@startuml
+title System structure - main packages and components
+
+package "Client" {
+  [Web Browser] as Browser
+}
+
+package "Torque App (Streamlit)" {
+  [Home Page\napp.py] as Home
+  [Mapper Page\n0_mapper.py] as MapperUI
+  [Runner Page\n2_test.py] as RunnerUI
+  [Evolution Page\n3_evolution.py] as EvoUI
+}
+
+package "Core Engine" {
+  [TorqueMapper\nTorque_mapper.py] as TM
+  [TorqueRunner\nTorque_runner.py] as TR
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+  [GE Algorithms\ngrape.algorithms] as GE
+}
+
+package "Config & Grammar" {
+  [Evolution Config\nconfig/evolution_config.json] as EvoConfig
+  [Mapper Config\nconfig/Torque_mapper_config.json] as MapperConfig
+  [Runner Config\nconfig/Torque_runner_config.json] as RunnerConfig
+  [BNF Grammar File\ngrammar/ensamble_grammar.bnf] as GrammarFile
+  [Grammar Loader\ngrammar.py] as GrammarLoader
+}
+
+package "Data & Results" {
+  [Dataset Loader\ndataset_loader.py] as Loader
+  [Data Files\ndata/*.csv] as CSVData
+  [UCI ML Repository] as UCI
+  [Results\nresults/*] as Results
+}
+
+Browser --> Home
+Home --> MapperUI
+Home --> RunnerUI
+Home --> EvoUI
+
+MapperUI --> TM
+RunnerUI --> TR
+EvoUI --> GE
+
+TR --> TM
+TM --> Compiler
+Compiler --> Registry
+
+GrammarLoader --> GrammarFile
+MapperUI --> GrammarLoader
+EvoUI --> GrammarLoader
+
+RunnerUI --> Loader
+EvoUI --> Loader
+Loader --> CSVData
+Loader --> UCI
+
+TR --> Results
+EvoUI --> Results
+
+@enduml
+

@@ -89,7 +89,7 @@ with col_data_left:
                     df.columns,
                     key="target_select"
                 )
-                
+
                 # Select feature columns
                 feature_cols = st.multiselect(
                     "Select Feature Columns",
@@ -97,15 +97,41 @@ with col_data_left:
                     default=[c for c in df.columns if c != target_col],
                     key="feature_select"
                 )
-                
+
+                pct_per_class_upload = st.slider(
+                    "Percent of each class to use",
+                    min_value=1,
+                    max_value=100,
+                    value=100,
+                    step=1,
+                    key="upload_pct_slider",
+                    help="Use this % of each class to reduce dataset size while keeping class balance (stratified sample).",
+                )
+                upload_random_seed = st.number_input(
+                    "Random seed for sampling",
+                    min_value=0,
+                    max_value=99999,
+                    value=42,
+                    key="upload_sample_seed",
+                )
+
                 if feature_cols and st.button("📥 Load Dataset", use_container_width=True):
                     X = df[feature_cols].values
                     y = df[target_col].values
-                    
+
+                    if pct_per_class_upload < 100:
+                        X, y, kept_idx = sample_stratified_by_class(
+                            X, y, float(pct_per_class_upload), random_state=int(upload_random_seed)
+                        )
+                        df_preview = df[feature_cols + [target_col]].iloc[kept_idx].reset_index(drop=True)
+                    else:
+                        df_preview = df[feature_cols + [target_col]].copy()
+
                     st.session_state.X = X
                     st.session_state.y = y
                     st.session_state.target_name = target_col
                     st.session_state.feature_names = feature_cols
+                    st.session_state.dataset = df_preview
                     
                     st.success(f"✅ Dataset ready: {X.shape[0]} samples, {X.shape[1]} features")
             
@@ -212,6 +238,28 @@ with col_data_left:
                 n_targets = st.number_input("Number of Targets", 1, 3, 1, 1, key="mock_n_targets")
         
         random_state = st.number_input("Random Seed", 0, 1000, 42, 1, key="mock_random_state")
+
+        # Optional downsampling per class for mock classification data
+        if is_classification:
+            pct_per_class_mock = st.slider(
+                "Percent of each class to use",
+                min_value=1,
+                max_value=100,
+                value=100,
+                step=1,
+                key="mock_pct_slider",
+                help="Use this % of each class to reduce dataset size while keeping class balance (stratified sample).",
+            )
+            mock_sample_seed = st.number_input(
+                "Random seed for sampling (mock)",
+                min_value=0,
+                max_value=99999,
+                value=42,
+                key="mock_sample_seed",
+            )
+        else:
+            pct_per_class_mock = 100
+            mock_sample_seed = int(random_state)
         
         if st.button("🎲 Generate Mock Data", use_container_width=True):
             try:
@@ -241,11 +289,20 @@ with col_data_left:
                         n_informative=min(4, n_features),
                         random_state=random_state
                     )
-                
-                # Create DataFrame for display
+
+                # Optional stratified downsampling
+                if pct_per_class_mock < 100:
+                    X, y, kept_idx = sample_stratified_by_class(
+                        X, y, float(pct_per_class_mock), random_state=int(mock_sample_seed)
+                    )
+                else:
+                    kept_idx = np.arange(len(y))
+
+                # Create DataFrame for display (only kept rows)
                 feature_names = [f"feature_{i+1}" for i in range(n_features)]
                 df = pd.DataFrame(X, columns=feature_names)
                 df["target"] = y
+                df = df.reset_index(drop=True)
                 
                 st.session_state.dataset = df
                 st.session_state.X = X

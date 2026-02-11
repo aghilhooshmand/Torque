@@ -1,0 +1,38 @@
+@startuml
+title Mapper system architecture
+
+actor User
+
+package "Client" {
+  [Web Browser] as Browser
+}
+
+package "Torque App (Streamlit)" {
+  [Home Page\napp.py] as Home
+  [Mapper Page\n0_mapper.py] as MapperUI
+}
+
+package "Mapper Core" {
+  [TorqueMapper\nTorque_mapper.py] as TM
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+  [Grammar Loader\ngrammar.py] as GrammarLoader
+  [BNF File\nensamble_grammar.bnf] as GrammarFile
+}
+
+User --> Browser : navigate to Torque
+Browser --> Home : load
+Home --> MapperUI : switch_page(\"0_mapper.py\")
+
+Browser --> MapperUI : enter Torque DSL\nclick \"Map to AST & Python\"
+MapperUI --> TM : map DSL
+TM --> GrammarLoader : get GRAMMAR_BNF
+GrammarLoader --> GrammarFile : read BNF
+TM --> Compiler : (for nested models)
+TM --> Registry : resolve model/ensemble classes
+TM --> MapperUI : AST + Python code
+
+MapperUI --> Browser : render AST tree,\nJSON and Python code
+
+@enduml
+

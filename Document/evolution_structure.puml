@@ -1,0 +1,48 @@
+@startuml
+title Evolution structure - main components
+
+package "UI" {
+  [Evolution Page\n3_evolution.py] as EvoUI
+}
+
+package "Config" {
+  [Evolution Config\nconfig/evolution_config.json] as EvoConfig
+}
+
+package "Data" {
+  [Dataset Loader\ndataset_loader.py] as Loader
+  [CSV / UCI Data] as DataSource
+}
+
+package "Grammar & GE" {
+  [BNF Grammar File\ngrammar/ensamble_grammar.bnf] as GrammarFile
+  [Grammar Loader\nGrammar class] as BNFGrammar
+  [GE Algorithms\ngrape.algorithms] as GE
+}
+
+package "Core DSL" {
+  [TorqueMapper\nTorque_mapper.py] as TM
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+}
+
+package "Results" {
+  [Evolution Runs\nresults/evolution_*/] as EvoResults
+}
+
+EvoUI --> EvoConfig : read GA/GE/dataset\nand bounds
+EvoUI --> Loader : load_dataset_from_config
+Loader --> DataSource
+
+EvoUI --> BNFGrammar : load BNFGrammar(GRAMMAR_PATH)
+BNFGrammar --> GrammarFile
+
+EvoUI --> GE : run GE with parameters\nand callbacks
+GE --> TM : map phenotypes to DSL\nand AST/Python
+TM --> Compiler
+Compiler --> Registry
+
+EvoUI --> EvoResults : write config.json,\nrun_*/generations.csv,\naveraged_across_runs.csv,\nchart.html
+
+@enduml
+

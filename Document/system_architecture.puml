@@ -1,78 +1,68 @@
 @startuml
-title Torque DSL - System Architecture
+title Overall system architecture - Torque DSL platform
 
-package "Grammar Layer" {
-  [Grammar Definition\n(grammar.py)] as Grammar
-  note right of Grammar
-    Defines production rules for DSL.
-    Can generate random valid DSL programs
-    using grammatical evolution.
-  end note
+actor User
+
+package "Client" {
+  [Web Browser] as Browser
 }
 
-package "Mapper Layer" {
-  [DSL Mapper\n(dsl_mapper.py)] as Mapper
-  [AST Nodes\n(CallNode, LiteralNode)] as AST
-  Mapper --> AST : produces
-  note right of Mapper
-    Uses pyparsing library to map
-    Torque DSL commands to dict-based AST.
-    Maps DSL commands to scikit-learn.
-    Handles nested function calls,
-    keyword/positional arguments.
-  end note
+package "Torque Web App\n(Streamlit)" {
+  [Home Page\napp.py] as Home
+  [Mapper Page\n0_mapper.py] as MapperUI
+  [Runner Page\n2_test.py] as RunnerUI
+  [Evolution Page\n3_evolution.py] as EvoUI
 }
 
-package "Compiler Layer" {
-  [AST Compiler\n(compiler.py)] as Compiler
-  [Model Registry] as ModelReg
-  [Ensemble Registry] as EnsembleReg
-  Compiler --> ModelReg : uses
-  Compiler --> EnsembleReg : uses
-  note right of Compiler
-    Traverses AST and builds
-    scikit-learn estimators.
-    Handles model-specific constraints
-    (e.g., SVM probability for soft voting).
-  end note
+package "Core Engine" {
+  [TorqueMapper\nTorque_mapper.py] as TM
+  [TorqueRunner\nTorque_runner.py] as TR
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+  [GE Algorithms\ngrape.algorithms] as GE
 }
 
-package "Runtime Layer" {
-  [scikit-learn Estimators] as Sklearn
-  note right of Sklearn
-    VotingClassifier, StackingClassifier,
-    BaggingClassifier, AdaBoostClassifier,
-    LogisticRegression, SVC, RandomForest,
-    DecisionTree, GaussianNB
-  end note
+package "Configuration & Grammar" {
+  [Mapper Config\nconfig/Torque_mapper_config.json] as MapperConfig
+  [Runner Config\nconfig/Torque_runner_config.json] as RunnerConfig
+  [Evolution Config\nconfig/evolution_config.json] as EvoConfig
+  [BNF Grammar File\ngrammar/ensamble_grammar.bnf] as GrammarFile
+  [Grammar Loader\ngrammar.py] as GrammarLoader
 }
 
-package "Application Layer" {
-  [Streamlit App\n(app.py)] as App
-  [Evaluator\n(evaluator.py)] as Eval
-  [Executor\n(executor.py)] as Exec
-  App --> Eval : uses
-  App --> Exec : uses
+package "Data & Storage" {
+  [Dataset Loader\ndataset_loader.py] as Loader
+  [Local CSV Data\ndata/*.csv] as CSVData
+  [UCI ML Repository] as UCI
+  [Results\nresults/*] as Results
 }
 
-' Data flow
-Grammar --> Mapper : DSL string
-Mapper --> Compiler : AST (dict)
-Compiler --> Sklearn : Estimator objects
-App --> Grammar : may generate DSL
-App --> Mapper : maps user input
-App --> Compiler : compiles to sklearn
-App --> Sklearn : fits & evaluates
+User --> Browser : open Torque app
+Browser --> Home
 
-' External dependencies
-cloud "External Libraries" {
-  [pyparsing] as PyParsing
-  [scikit-learn] as SklearnLib
-  [streamlit] as Streamlit
-}
+Home --> MapperUI
+Home --> RunnerUI
+Home --> EvoUI
 
-Mapper ..> PyParsing : uses
-Compiler ..> SklearnLib : uses
-App ..> Streamlit : uses
+MapperUI --> TM
+RunnerUI --> TR
+EvoUI --> GE
+
+TR --> TM
+TM --> Compiler
+Compiler --> Registry
+
+MapperUI --> GrammarLoader
+EvoUI --> GrammarLoader
+GrammarLoader --> GrammarFile
+
+RunnerUI --> Loader
+EvoUI --> Loader
+Loader --> CSVData
+Loader --> UCI
+
+TR --> Results
+EvoUI --> Results
 
 @enduml
+

@@ -209,8 +209,8 @@ with col1:
 
 with col2:
     st.subheader("GA operators")
-    cxpb = st.slider("Crossover probability (p_crossover)", _b["cxpb"][0], _b["cxpb"][1], float(_ga["cxpb"]), 0.05)
-    mutpb = st.slider("Mutation probability (p_mutation)", _b["mutpb"][0], _b["mutpb"][1], float(_ga["mutpb"]), 0.01, help="Higher values (e.g. 0.05–0.15) help the best phenotype change over generations.")
+    cxpb = st.slider("Crossover probability (p_crossover)", float(_b["cxpb"][0]), float(_b["cxpb"][1]), float(_ga["cxpb"]), 0.05)
+    mutpb = st.slider("Mutation probability (p_mutation)", float(_b["mutpb"][0]), float(_b["mutpb"][1]), float(_ga["mutpb"]), 0.01, help="Higher values (e.g. 0.05–0.15) help the best phenotype change over generations.")
     tournsize = st.number_input("Tournament size (tournsize)", min_value=_b["tournsize"][0], max_value=_b["tournsize"][1], value=_clamp(_ga["tournsize"], _b["tournsize"][0], _b["tournsize"][1]), step=1)
 
 with col3:
@@ -233,14 +233,14 @@ with col4:
     max_genome_len = st.number_input("Max initial genome length", min_value=_b["max_genome_len"][0], max_value=_b["max_genome_len"][1], value=_clamp(_ge["max_genome_len"], _b["max_genome_len"][0], _b["max_genome_len"][1]), step=5)
     max_genome_length_cap = st.number_input("Max genome length (cap, 0=off)", min_value=_b["max_genome_length_cap"][0], max_value=_b["max_genome_length_cap"][1], value=_clamp(_ge["max_genome_length_cap"], _b["max_genome_length_cap"][0], _b["max_genome_length_cap"][1]), step=50)
 
-test_size = st.slider("Test split (for train/test metrics)", _b["test_size"][0], _b["test_size"][1], float(_ds["test_size"]), 0.05)
+test_size = st.slider("Test split (for train/test metrics)", float(_b["test_size"][0]), float(_b["test_size"][1]), float(_ds["test_size"]), 0.05)
 use_validation_fitness = st.checkbox(
     "Use validation set for fitness (recommended)",
     value=bool(_ds["use_validation_fitness"]),
     help="If on: split training data into train/validation; fitness = MAE on validation (fit on train). "
          "Reduces overfitting so the best phenotype can change. If off: fitness = MAE on full training set.",
 )
-validation_frac = st.slider("Validation fraction (of training data)", _b["validation_frac"][0], _b["validation_frac"][1], float(_ds["validation_frac"]), 0.05, disabled=not use_validation_fitness)
+validation_frac = st.slider("Validation fraction (of training data)", float(_b["validation_frac"][0]), float(_b["validation_frac"][1]), float(_ds["validation_frac"]), 0.05, disabled=not use_validation_fitness)
 base_random_state = st.number_input("Base random seed (evolution.random_seed)", min_value=_b["base_random_state"][0], max_value=_b["base_random_state"][1], value=_clamp(_ds["base_random_state"], _b["base_random_state"][0], _b["base_random_state"][1]), step=1)
 
 # ---------------------------------------------------------------------------
@@ -629,11 +629,13 @@ if st.button("Start Evolution", type="primary"):
         avg_csv_path = os.path.join(exp_dir, "averaged_across_runs.csv")
         df_avg.to_csv(avg_csv_path, index=False)
         
-        # Save final chart as HTML
+        # Save final chart as HTML with 3 panels: config, chart, best individual
         try:
             import plotly.graph_objects as go
+            from html import escape as html_escape
+
             fig = go.Figure()
-            
+
             # Train curves
             train_min_mean_arr = np.asarray(train_min_mean)
             train_min_std_arr = np.asarray(train_min_std)
@@ -641,7 +643,7 @@ if st.button("Start Evolution", type="primary"):
             train_avg_std_arr = np.asarray(train_avg_std)
             train_max_mean_arr = np.asarray(train_max_mean)
             train_max_std_arr = np.asarray(train_max_std)
-            
+
             # Average train MAE with std band
             fig.add_trace(
                 go.Scatter(
@@ -664,7 +666,7 @@ if st.button("Start Evolution", type="primary"):
                     showlegend=False,
                 )
             )
-            
+
             # Best (min) train MAE
             fig.add_trace(
                 go.Scatter(
@@ -675,7 +677,7 @@ if st.button("Start Evolution", type="primary"):
                     mode="lines",
                 )
             )
-            
+
             # Worst (max) train MAE
             fig.add_trace(
                 go.Scatter(
@@ -686,7 +688,7 @@ if st.button("Start Evolution", type="primary"):
                     mode="lines",
                 )
             )
-            
+
             # Test MAE with std band
             test_mean_arr = np.asarray(test_mean)
             test_std_arr = np.asarray(test_std)
@@ -711,7 +713,7 @@ if st.button("Start Evolution", type="primary"):
                     showlegend=False,
                 )
             )
-            
+
             fig.update_layout(
                 title="MAE (error) across generations — train (min/avg/max) and test, mean ± std over runs",
                 xaxis_title="Generation",
@@ -720,9 +722,74 @@ if st.button("Start Evolution", type="primary"):
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 template="plotly_white",
             )
-            
+
+            chart_div = fig.to_html(full_html=False, include_plotlyjs="cdn")
+
+            # Panel 1: config
+            dataset_source = _ds.get("file") or (f"UCI id={_ds.get('uci_id')}" if _ds.get("uci_id") is not None else "N/A")
+            dataset_target = _ds.get("target_column")
+            config_lines = [
+                f"Dataset: {dataset_source}",
+                f"Target column: {dataset_target}",
+                f"samples={n_samples}, features={n_features}, classes={n_classes}",
+                f"GA: ngen={ngen_actual}, pop_size={pop_size}, elite={elite_size}, halloffame={halloffame_size}, n_runs={n_runs}",
+                f"GE: max_tree_depth={max_tree_depth}, codon_size={codon_size}, genome_len=[{min_genome_len},{max_genome_len}]",
+                f"Splits: test_size={test_size}, use_validation={use_validation_fitness}, val_frac={validation_frac if use_validation_fitness else 'N/A'}, base_seed={base_random_state}",
+            ]
+            config_text = "\n".join(config_lines)
+
+            # Panel 3: best individual
+            if last_best:
+                pheno = last_best.get("best_individual") or ""
+                train_fit = last_best.get("train_fitness")
+                test_fit = last_best.get("test_fitness")
+                depth = last_best.get("best_depth")
+                genome_len = last_best.get("best_genome_length")
+                used_codons = last_best.get("best_used_codons")
+                best_lines = [
+                    f"Phenotype: {pheno}",
+                    f"Train MAE: {train_fit:.4f}" if train_fit is not None else "Train MAE: N/A",
+                    f"Test MAE: {test_fit:.4f}" if test_fit is not None else "Test MAE: N/A",
+                    f"Depth: {depth}",
+                    f"Genome length: {genome_len}",
+                    f"Used codons: {used_codons}",
+                ]
+            else:
+                best_lines = ["No best individual recorded."]
+            best_text = "\n".join(best_lines)
+
+            page_html = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset='utf-8'/>
+  <title>Torque Evolution - Chart</title>
+  <style>
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 20px; background: #f7f7f7; }}
+    .panel {{ background: #fff; border-radius: 8px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }}
+    .panel h2 {{ margin-top: 0; }}
+    pre {{ white-space: pre-wrap; font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 13px; }}
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <h2>Config</h2>
+    <pre>{html_escape(config_text)}</pre>
+  </div>
+  <div class="panel">
+    <h2>Evolution Chart</h2>
+    {chart_div}
+  </div>
+  <div class="panel">
+    <h2>Best Individual (last run)</h2>
+    <pre>{html_escape(best_text)}</pre>
+  </div>
+</body>
+</html>
+"""
+
             html_path = os.path.join(exp_dir, "chart.html")
-            fig.write_html(html_path)
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(page_html)
         except Exception as e:
             st.warning(f"Could not save chart HTML: {e}")
         

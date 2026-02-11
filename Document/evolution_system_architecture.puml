@@ -1,0 +1,54 @@
+@startuml
+title Evolution system architecture
+
+actor User
+
+package "Client" {
+  [Web Browser] as Browser
+}
+
+package "Torque App (Streamlit)" {
+  [Home Page\napp.py] as Home
+  [Evolution Page\n3_evolution.py] as EvoUI
+  [Runner Page\n2_test.py] as RunnerUI
+}
+
+package "Config & Grammar" {
+  [Evolution Config\nconfig/evolution_config.json] as EvoConfig
+  [BNF Grammar File\ngrammar/ensamble_grammar.bnf] as GrammarFile
+}
+
+package "Evolution Engine" {
+  [Dataset Loader\ndataset_loader.py] as Loader
+  [GE Grammar\nGrammar class] as BNFGrammar
+  [GE Algorithms\ngrape.algorithms] as GE
+  [TorqueMapper\nTorque_mapper.py] as TM
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+}
+
+package "Data & Results" {
+  [CSV / UCI Data] as DataSource
+  [Evolution Results\nresults/evolution_*/] as EvoResults
+}
+
+User --> Browser : open Torque app
+Browser --> Home : load
+Home --> EvoUI : switch_page(\"3_evolution.py\")
+
+EvoUI --> EvoConfig : read GA/GE/dataset\nand bounds
+EvoUI --> Loader : load_dataset_from_config
+Loader --> DataSource
+
+EvoUI --> BNFGrammar : load grammar
+BNFGrammar --> GrammarFile
+
+EvoUI --> GE : run GE for n_runs
+GE --> TM : map phenotypes
+TM --> Compiler
+Compiler --> Registry
+
+EvoUI --> EvoResults : write config.json,\nrun_*/generations.csv,\naveraged_across_runs.csv,\nchart.html
+
+@enduml
+

@@ -1,0 +1,26 @@
+@startuml
+title Mapper structure - main components
+
+package "UI" {
+  [Mapper Page\n0_mapper.py] as MapperUI
+}
+
+package "Core DSL" {
+  [TorqueMapper\nTorque_mapper.py] as TorqueMapperComp
+  [Compiler\ncompiler.py] as Compiler
+  [Registry\nregistry.py] as Registry
+}
+
+package "Grammar" {
+  [Grammar Loader\ngrammar.py] as GrammarLoader
+  [BNF File\ngrammar/ensamble_grammar.bnf] as GrammarFile
+}
+
+MapperUI --> TorqueMapperComp : map DSL\n(dsl_to_ast, map_to_python)
+TorqueMapperComp --> Registry : MODEL_REGISTRY\nENSEMBLE_REGISTRY
+TorqueMapperComp --> Compiler : compile nested\nmodel calls
+TorqueMapperComp --> GrammarLoader : load GRAMMAR_BNF
+GrammarLoader --> GrammarFile : read/write BNF
+
+@enduml
+
