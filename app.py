@@ -21,7 +21,7 @@ st.markdown("---")
 # Navigation
 st.header("📚 Navigation")
 
-col1, col2, col3, col4, col5, col6 = st.columns(6)
+col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
 
 with col1:
     st.subheader("🗺️ Mapper")
@@ -81,6 +81,16 @@ with col6:
     """)
     if st.button("Go to Guide", type="primary", use_container_width=True):
         st.switch_page("pages/5_guide.py")
+
+with col7:
+    st.subheader("📂 Results")
+    st.markdown("""
+    - Browse previous experiments
+    - View CSV / HTML / images
+    - Quick inspection of CLI outputs
+    """)
+    if st.button("Go to Results", type="primary", use_container_width=True):
+        st.switch_page("pages/6_results.py")
 
 st.markdown("---")
 
