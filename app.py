@@ -21,7 +21,7 @@ st.markdown("---")
 # Navigation
 st.header("📚 Navigation")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5, col6 = st.columns(6)
 
 with col1:
     st.subheader("🗺️ Mapper")
@@ -61,6 +61,26 @@ with col4:
     """)
     if st.button("Go to Evolution", type="primary", use_container_width=True):
         st.switch_page("pages/3_evolution.py")
+
+with col5:
+    st.subheader("📊 Meta-Features")
+    st.markdown("""
+    - Compute meta-features via PyMFE
+    - Store multiple datasets
+    - Compare meta-features across datasets
+    """)
+    if st.button("Go to Meta-Features", type="primary", use_container_width=True):
+        st.switch_page("pages/4_meta_features.py")
+
+with col6:
+    st.subheader("📖 Guide")
+    st.markdown("""
+    - Meta-features guide
+    - Interpretation help
+    - Complexity assessment
+    """)
+    if st.button("Go to Guide", type="primary", use_container_width=True):
+        st.switch_page("pages/5_guide.py")
 
 st.markdown("---")
 

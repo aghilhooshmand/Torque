@@ -17,6 +17,13 @@ import pandas as pd
 import streamlit as st
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler
+
+try:
+    from imblearn.over_sampling import SMOTE
+    SMOTE_AVAILABLE = True
+except ImportError:
+    SMOTE_AVAILABLE = False
 
 # Project root
 current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -242,6 +249,37 @@ use_validation_fitness = st.checkbox(
 )
 validation_frac = st.slider("Validation fraction (of training data)", float(_b["validation_frac"][0]), float(_b["validation_frac"][1]), float(_ds["validation_frac"]), 0.05, disabled=not use_validation_fitness)
 base_random_state = st.number_input("Base random seed (evolution.random_seed)", min_value=_b["base_random_state"][0], max_value=_b["base_random_state"][1], value=_clamp(_ds["base_random_state"], _b["base_random_state"][0], _b["base_random_state"][1]), step=1)
+
+preprocessing = st.selectbox(
+    "Data Preprocessing",
+    options=["none", "standard", "minmax", "robust"],
+    index=0,
+    format_func=lambda x: {
+        "none": "None (use raw data)",
+        "standard": "StandardScaler (mean=0, std=1)",
+        "minmax": "MinMaxScaler (0-1 range)",
+        "robust": "RobustScaler (robust to outliers)"
+    }[x],
+    help=(
+        "Preprocessing applied after train/test split. "
+        "StandardScaler recommended for LR, SVM, KNN. "
+        "Tree models (DT) are scale-invariant."
+    ),
+    key="evolution_preprocessing"
+)
+
+use_smote = st.checkbox(
+    "Balance training data with SMOTE",
+    value=False,
+    help=(
+        "Apply SMOTE (Synthetic Minority Over-sampling) to the training set only "
+        "to balance classes. Recommended for imbalanced datasets. "
+        "Test and validation sets are never resampled."
+    ),
+    key="evolution_use_smote",
+)
+if use_smote and not SMOTE_AVAILABLE:
+    st.warning("⚠️ SMOTE requires `imbalanced-learn`. Install with: pip install imbalanced-learn — SMOTE will be skipped during evolution until then.")
 
 # ---------------------------------------------------------------------------
 # Fitness: MAE (error) — lower is better. MAE = 1 - accuracy (classification error rate).
@@ -488,14 +526,46 @@ if st.button("Start Evolution", type="primary"):
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=run_seed, stratify=y
         )
+        
+        # Apply preprocessing if specified
+        scaler = None
+        if preprocessing and preprocessing != "none":
+            if preprocessing == "standard":
+                scaler = StandardScaler()
+            elif preprocessing == "minmax":
+                scaler = MinMaxScaler()
+            elif preprocessing == "robust":
+                scaler = RobustScaler()
+            
+            if scaler is not None:
+                X_train = scaler.fit_transform(X_train)
+                X_test = scaler.transform(X_test)
+        
         if use_validation_fitness and validation_frac > 0:
             X_train_inner, X_val, y_train_inner, y_val = train_test_split(
                 X_train, y_train, test_size=validation_frac, random_state=run_seed + 1000, stratify=y_train
             )
-            points_train = (X_train_inner, y_train_inner)
+            X_fit, y_fit = X_train_inner, y_train_inner
+        else:
+            X_fit, y_fit = X_train, y_train
+            X_val, y_val = None, None
+
+        # Apply SMOTE to training data only (never test/validation)
+        if use_smote and SMOTE_AVAILABLE:
+            try:
+                # k_neighbors must be less than min class count; use 1 if classes are very small
+                min_class_count = int(np.min(np.bincount(y_fit.astype(int))))
+                k = min(5, min_class_count - 1) if min_class_count > 1 else 1
+                smote = SMOTE(random_state=run_seed, k_neighbors=max(1, k))
+                X_fit, y_fit = smote.fit_resample(X_fit, y_fit)
+            except Exception:
+                pass  # keep original X_fit, y_fit if SMOTE fails (e.g. too few samples)
+
+        if use_validation_fitness and validation_frac > 0:
+            points_train = (X_fit, y_fit)
             points_fitness = (X_val, y_val)
         else:
-            points_train = (X_train, y_train)
+            points_train = (X_fit, y_fit)
             points_fitness = None
         points_test = (X_test, y_test)
         running_history.clear()

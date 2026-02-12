@@ -1,0 +1,32 @@
+{
+  "timestamp": "20260211_235735",
+  "n_runs": 5,
+  "n_generations": 21,
+  "params": {
+    "ngen": 20,
+    "pop_size": 20,
+    "elite_size": 1,
+    "halloffame_size": 1,
+    "cxpb": 0.8,
+    "mutpb": 0.1,
+    "tournsize": 7,
+    "min_init_tree_depth": 3,
+    "max_init_tree_depth": 7,
+    "max_tree_depth": 35,
+    "codon_size": 255,
+    "genome_representation": "list",
+    "codon_consumption": "lazy",
+    "min_genome_len": 20,
+    "max_genome_len": 100,
+    "max_genome_length": null
+  },
+  "data_info": {
+    "n_samples": 893,
+    "n_features": 16,
+    "n_classes": 2
+  },
+  "test_size": 0.25,
+  "use_validation_fitness": true,
+  "validation_frac": 0.15,
+  "base_random_state": 42
+}

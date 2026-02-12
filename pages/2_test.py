@@ -347,6 +347,29 @@ with col_data_right:
             st.markdown("**Target Statistics:**")
             st.write(f"- Unique values: {len(np.unique(st.session_state.y))}")
             st.write(f"- Min: {st.session_state.y.min()}, Max: {st.session_state.y.max()}")
+
+        # Save dataset to CSV
+        st.markdown("**💾 Save to CSV**")
+        default_save_path = os.path.join("data", "saved_dataset.csv")
+        save_path = st.text_input(
+            "File path (relative to project)",
+            value=default_save_path,
+            key="test_save_csv_path",
+            help="e.g. data/mock_data.csv or results/my_dataset.csv",
+        )
+        if st.button("Save dataset to CSV", key="test_save_csv_btn", use_container_width=True):
+            if not save_path.strip():
+                st.error("Enter a file path.")
+            else:
+                out_path = os.path.join(current_dir, save_path.strip())
+                try:
+                    parent = os.path.dirname(out_path)
+                    if parent:
+                        os.makedirs(parent, exist_ok=True)
+                    df.to_csv(out_path, index=False)
+                    st.success(f"✅ Saved to `{out_path}`")
+                except Exception as e:
+                    st.error(f"❌ Could not save: {e}")
     else:
         st.info("💡 Upload a CSV, fetch from UCI ML Repository, or generate mock data to see preview")
 
@@ -376,6 +399,35 @@ with col_dsl_left:
     with st.expander("⚙️ Test Settings"):
         test_size = st.slider("Test Size", 0.1, 0.5, 0.3, 0.05, key="test_size_slider")
         random_state = st.number_input("Random Seed", 0, 1000, 42, 1, key="test_random_state")
+        
+        preprocessing = st.selectbox(
+            "Data Preprocessing",
+            options=["none", "standard", "minmax", "robust"],
+            index=0,
+            format_func=lambda x: {
+                "none": "None (use raw data)",
+                "standard": "StandardScaler (mean=0, std=1)",
+                "minmax": "MinMaxScaler (0-1 range)",
+                "robust": "RobustScaler (robust to outliers)"
+            }[x],
+            help=(
+                "Preprocessing applied after train/test split. "
+                "StandardScaler recommended for LR, SVM, KNN. "
+                "Tree models (DT) are scale-invariant."
+            ),
+            key="test_preprocessing"
+        )
+
+        use_smote = st.checkbox(
+            "Balance training data with SMOTE",
+            value=False,
+            help=(
+                "Apply SMOTE (Synthetic Minority Over-sampling) to the training set only "
+                "to balance classes. Recommended for imbalanced datasets. "
+                "Test set is never resampled."
+            ),
+            key="test_use_smote",
+        )
     
     # Run button
     if st.button("▶️ Run DSL", type="primary", use_container_width=True):
@@ -394,6 +446,8 @@ with col_dsl_left:
                         y=st.session_state.y,
                         test_size=float(test_size),
                         random_state=int(random_state),
+                        preprocessing=preprocessing if preprocessing != "none" else None,
+                        use_smote=use_smote,
                         mapped_json_file=os.path.join(results_dir, "Torque_mapper_result.json"),
                         metrics_json_file=os.path.join(results_dir, "Torque_runner_result.json"),
                     )
