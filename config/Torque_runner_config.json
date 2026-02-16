@@ -1,1 +1,21 @@
-{"torque_command":"vote(LR(C=1.0), SVM(kernel=\"rbf\"); voting=\"hard\")","data":{"file":"data/processed.cleveland.csv","target_column":"class","delimiter":",","header":true},"splitting":{"test_size":0.2,"random_state":42},"evaluation":{"cv_folds":5,"random_state":42},"output":{"mapped_json_file":"results/Torque_mapper_result.json","metrics_json_file":"results/Torque_runner_result.json"}}
+{
+    "torque_command": "vote(LR(C=1.0), SVM(kernel=\"rbf\"); voting=\"hard\")",
+    "data": {
+        "file": "data/processed.cleveland.csv",
+        "target_column": "class",
+        "delimiter": ",",
+        "header": true
+    },
+    "splitting": {
+        "test_size": 0.2,
+        "random_state": 42
+    },
+    "evaluation": {
+        "cv_folds": 5,
+        "random_state": 42
+    },
+    "output": {
+        "mapped_json_file": "results/Torque_mapper_result.json",
+        "metrics_json_file": "results/Torque_runner_result.json"
+    }
+}

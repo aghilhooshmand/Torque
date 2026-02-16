@@ -27,7 +27,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from compiler import compile_ast_to_estimator
-from dataset_loader import load_dataset_from_config
+from dataset_loader import load_dataset_from_config, sample_stratified_by_class
 from grape.grape import (
     Grammar,
     normalise_torque_phenotype,
@@ -38,6 +38,7 @@ from grape.grape import (
 )
 from grape import algorithms as grape_algorithms
 from Torque_mapper import TorqueMapper
+from torque_fitness_cache import GLOBAL_FITNESS_CACHE
 
 from deap import base, creator, tools
 
@@ -49,12 +50,26 @@ def load_config(path=None):
 
 
 def load_dataset(cfg):
-    """Load X, y from config (file or UCI). Returns (X, y) for backward compatibility."""
+    """Load X, y from config (file or UCI), with optional per-class sampling."""
     X, y, _ = load_dataset_from_config(cfg, root_dir=ROOT)
+    ds = cfg.get("dataset", {})
+    pct = float(ds.get("sample_pct_per_class", 100))
+    if pct < 100:
+        # Stratified sampling: keep pct% of each class
+        base_rs = int(ds.get("base_random_state", 42))
+        X, y, _ = sample_stratified_by_class(X, y, pct=pct, random_state=base_rs)
     return X, y
 
 
-def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
+def evaluate_torque_mae(
+    ind,
+    points,
+    mapper,
+    worst_mae=1.0,
+    fit_points=None,
+    use_fitness_cache=True,
+    cache_comparison="string",
+):
     X_score, y_score = points
     phenotype = getattr(ind, "phenotype", None)
     if not phenotype:
@@ -65,6 +80,16 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
         return (worst_mae,)
     if not cmd or "<" in cmd:
         return (worst_mae,)
+
+    if use_fitness_cache:
+        cached = GLOBAL_FITNESS_CACHE.get(
+            cmd, points, fit_points,
+            comparison_mode=cache_comparison,
+            mapper=mapper if cache_comparison == "ast" else None,
+        )
+        if cached is not None:
+            return cached
+
     try:
         ast = mapper.dsl_to_ast(cmd)
         est = compile_ast_to_estimator(ast)
@@ -74,7 +99,14 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
         else:
             est.fit(X_score, y_score)
         acc = accuracy_score(y_score, est.predict(X_score))
-        return (1.0 - float(acc),)
+        result = (1.0 - float(acc),)
+        if use_fitness_cache:
+            GLOBAL_FITNESS_CACHE.set(
+                cmd, points, fit_points, result, source="cli",
+                comparison_mode=cache_comparison,
+                mapper=mapper if cache_comparison == "ast" else None,
+            )
+        return result
     except Exception:
         return (worst_mae,)
 
@@ -96,6 +128,8 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, poin
     min_genome_len = params["min_genome_len"]
     max_genome_len = params["max_genome_len"]
     max_genome_length = params.get("max_genome_length") or None
+    use_fitness_cache = params.get("use_fitness_cache", True)
+    cache_comparison = params.get("cache_comparison", "string")
 
     random.seed(run_seed)
     np.random.seed(run_seed)
@@ -105,16 +139,21 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, poin
 
     mapper = TorqueMapper()
 
+    def _eval_kw():
+        return {"use_fitness_cache": use_fitness_cache, "cache_comparison": cache_comparison}
+
     def evaluate(ind, points=None):
+        kw = _eval_kw()
         if points is not None:
             fit_on_train = points is points_test
             return evaluate_torque_mae(
                 ind, points, mapper,
                 fit_points=points_train if fit_on_train else None,
+                **kw,
             )
         if points_fitness is not None:
-            return evaluate_torque_mae(ind, points_fitness, mapper, fit_points=points_train)
-        return evaluate_torque_mae(ind, points_train, mapper)
+            return evaluate_torque_mae(ind, points_fitness, mapper, fit_points=points_train, **kw)
+        return evaluate_torque_mae(ind, points_train, mapper, **kw)
 
     toolbox = base.Toolbox()
     toolbox.register("evaluate", evaluate)
@@ -176,6 +215,11 @@ def main():
     else:
         print("Loading dataset:", ds.get("file"))
     X, y, _ = load_dataset_from_config(cfg, root_dir=ROOT)
+    # Apply optional per-class sampling for evolution (same logic as load_dataset)
+    ds_full = cfg.get("dataset", {})
+    pct_cli = float(ds_full.get("sample_pct_per_class", 100))
+    if pct_cli < 100:
+        X, y, _ = sample_stratified_by_class(X, y, pct=pct_cli, random_state=int(ds_full.get("base_random_state", 42)))
     n_samples, n_features = X.shape
     print(f"  samples={n_samples}, features={n_features}, classes={len(np.unique(y))}")
 
@@ -191,6 +235,7 @@ def main():
     base_seed = int(ds["base_random_state"])
     n_runs = int(ga["n_runs"])
 
+    cache_cfg = cfg.get("cache", {})
     params = {
         "ngen": int(ga["ngen"]),
         "pop_size": int(ga["pop_size"]),
@@ -208,6 +253,8 @@ def main():
         "min_genome_len": int(ge["min_genome_len"]),
         "max_genome_len": int(ge["max_genome_len"]),
         "max_genome_length": int(ge["max_genome_length_cap"]) or None,
+        "use_fitness_cache": bool(cache_cfg.get("use_fitness_cache", True)),
+        "cache_comparison": str(cache_cfg.get("cache_comparison", "string")),
     }
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -243,7 +290,12 @@ def main():
             best = hof.items[0]
             best_per_run.append(best)
             train_mae = best.fitness.values[0]
-            test_mae = evaluate_torque_mae(best, points_test, TorqueMapper(), fit_points=points_train)[0]
+            test_mae = evaluate_torque_mae(
+                best, points_test, TorqueMapper(),
+                fit_points=points_train,
+                use_fitness_cache=params["use_fitness_cache"],
+                cache_comparison=params["cache_comparison"],
+            )[0]
             print(f"  Best phenotype: {getattr(best, 'phenotype', '')[:80]}...")
             print(f"  Train MAE: {train_mae:.6f}  Test MAE: {test_mae:.6f}")
 
@@ -368,6 +420,12 @@ def main():
         print("Chart saved: chart.html")
     except Exception as e:
         print("Could not save chart.html:", e)
+
+    # Export fitness cache used during this CLI run (if any)
+    try:
+        GLOBAL_FITNESS_CACHE.export(out_dir, basename="fitness_cache")
+    except Exception:
+        pass
 
     print("\nDone. Results in", out_dir)
 

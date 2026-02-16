@@ -329,7 +329,7 @@ class TorqueMapper:
     
     def _generate_imports(self, ast: Dict) -> str:
         """
-        Generate necessary scikit-learn imports based on AST content.
+        Generate necessary scikit-learn and xgboost imports based on AST content.
         
         Args:
             ast: The AST dictionary representing the Torque command
@@ -337,16 +337,42 @@ class TorqueMapper:
         Returns:
             String containing import statements
         """
-        # For simplicity, import all commonly used classes
-        # In a production system, you might want to analyze AST and import only what's needed
+        # Collect model names used in AST (including nested calls)
+        used_models = self._collect_model_names(ast)
+        
         import_lines = [
             "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier",
+            "from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier",
             "from sklearn.linear_model import LogisticRegression",
             "from sklearn.tree import DecisionTreeClassifier",
-            "from sklearn.naive_bayes import GaussianNB"
+            "from sklearn.naive_bayes import GaussianNB",
+            "from sklearn.neighbors import KNeighborsClassifier",
+            "from sklearn.svm import SVC",
         ]
+        if "XGB" in used_models and "XGB" in self.model_registry:
+            import_lines.append("from xgboost import XGBClassifier")
         
         return "\n".join(import_lines)
+    
+    def _collect_model_names(self, ast: Dict, acc: Optional[set] = None) -> set:
+        """Recursively collect all model/ensemble names used in the AST."""
+        if acc is None:
+            acc = set()
+        if ast.get("type") == "call":
+            name = ast.get("name", "")
+            if name in self.model_registry or name in self.ensemble_registry:
+                acc.add(name)
+            for pos in ast.get("pos", []):
+                if isinstance(pos, dict):
+                    self._collect_model_names(pos, acc)
+            for kw_val in ast.get("kw", {}).values():
+                if isinstance(kw_val, dict):
+                    self._collect_model_names(kw_val, acc)
+        elif ast.get("type") == "literal":
+            val = ast.get("value")
+            if isinstance(val, str) and val in self.model_registry:
+                acc.add(val)
+        return acc
     
     def _ast_to_python(self, ast: Dict, variable_name: str, indent: int = 0) -> str:
         """
@@ -455,10 +481,10 @@ class TorqueMapper:
                 estimators_list = f"[{', '.join(estimators_tuples)}]"
                 estimators_param = f"estimators={estimators_list}"
             else:
-                # BaggingClassifier and AdaBoostClassifier use 'base_estimator' (singular)
+                # BaggingClassifier and AdaBoostClassifier use 'estimator' (sklearn 1.2+; was base_estimator)
                 if len(pos_args) > 1:
                     raise ValueError(f"{ensemble_name} only accepts one base estimator, got {len(pos_args)}")
-                estimators_param = f"base_estimator={base_estimators[0]}"
+                estimators_param = f"estimator={base_estimators[0]}"
         else:
             estimators_param = ""
         

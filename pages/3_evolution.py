@@ -42,6 +42,7 @@ from grape.grape import (
 )
 from grape import algorithms as grape_algorithms
 from Torque_mapper import TorqueMapper
+from torque_fitness_cache import GLOBAL_FITNESS_CACHE
 
 try:
     from deap import base, creator, tools
@@ -69,6 +70,7 @@ def _load_evolution_config():
         "ge": {"min_init_tree_depth": 3, "max_init_tree_depth": 7, "max_tree_depth": 35, "max_wraps": 0, "codon_size": 255, "genome_representation": "list", "codon_consumption": "lazy", "min_genome_len": 20, "max_genome_len": 100, "max_genome_length_cap": 0},
         "dataset": {"file": None, "target_column": None, "delimiter": ",", "header": True, "test_size": 0.25, "use_validation_fitness": True, "validation_frac": 0.2, "base_random_state": 42},
         "bounds": {"ngen": [1, 200], "pop_size": [4, 500], "elite_size": [0, 10], "halloffame_size": [1, 10], "n_runs": [1, 30], "cxpb": [0.0, 1.0], "mutpb": [0.0, 0.5], "tournsize": [2, 15], "min_init_tree_depth": [1, 20], "max_init_tree_depth": [2, 20], "max_tree_depth": [5, 100], "max_wraps": [0, 10], "codon_size": [2, 512], "min_genome_len": [5, 50], "max_genome_len": [20, 500], "max_genome_length_cap": [0, 2000], "test_size": [0.1, 0.5], "validation_frac": [0.1, 0.4], "base_random_state": [0, 99999]},
+        "cache": {"use_fitness_cache": True, "cache_comparison": "string"},
     }
     try:
         if os.path.isfile(EVOLUTION_CONFIG_PATH):
@@ -281,10 +283,40 @@ use_smote = st.checkbox(
 if use_smote and not SMOTE_AVAILABLE:
     st.warning("⚠️ SMOTE requires `imbalanced-learn`. Install with: pip install imbalanced-learn — SMOTE will be skipped during evolution until then.")
 
+_cache = _evolution_cfg.get("cache", {})
+use_fitness_cache = st.checkbox(
+    "Enable fitness cache (skip re-training identical models)",
+    value=bool(_cache.get("use_fitness_cache", True)),
+    help="When enabled, identical models reuse cached fitness instead of re-training. Speeds up evolution when phenotypes repeat.",
+    key="evolution_use_fitness_cache",
+)
+_cache_comp = str(_cache.get("cache_comparison", "string"))
+cache_comparison = st.selectbox(
+    "Cache comparison (how to detect identical models)",
+    options=["string", "ast"],
+    index=0 if _cache_comp == "string" else 1,
+    format_func=lambda x: {
+        "string": "String-based (normalized command)",
+        "ast": "AST-based (semantic comparison)",
+    }[x],
+    disabled=not use_fitness_cache,
+    key="evolution_cache_comparison",
+)
+with st.expander("Cache comparison: string vs AST"):
+    st.markdown("""
+- **String-based** (default): Compares the *normalized* command string (whitespace and quotes stripped).
+  - **Pros:** Fast, no extra parsing.
+  - **Cons:** Parameter *order* matters. `XGB(n_estimators=1, max_depth=3)` and `XGB(max_depth=3, n_estimators=1)` are treated as *different* even though they are the same model.
+
+- **AST-based**: Parses each command to an AST and compares a *canonical* representation.
+  - **Pros:** Semantic equality: parameter order is ignored. More cache hits when the same model appears with different parameter order.
+  - **Cons:** Slightly more overhead (parse + canonicalize per evaluation).
+""")
+
 # ---------------------------------------------------------------------------
 # Fitness: MAE (error) — lower is better. MAE = 1 - accuracy (classification error rate).
 # ---------------------------------------------------------------------------
-def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
+def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None, use_fitness_cache=True, cache_comparison="string"):
     """Return (MAE,) for this individual. Lower is better.
 
     If fit_points is None: fit and score on `points` (training fitness).
@@ -301,6 +333,16 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
         return (worst_mae,)
     if not cmd or "<" in cmd:
         return (worst_mae,)
+
+    if use_fitness_cache:
+        cached = GLOBAL_FITNESS_CACHE.get(
+            cmd, points, fit_points,
+            comparison_mode=cache_comparison,
+            mapper=mapper if cache_comparison == "ast" else None,
+        )
+        if cached is not None:
+            return cached
+
     try:
         ast = mapper.dsl_to_ast(cmd)
         est = compile_ast_to_estimator(ast)
@@ -311,7 +353,14 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
             est.fit(X_score, y_score)
         acc = accuracy_score(y_score, est.predict(X_score))
         mae = 1.0 - float(acc)  # error rate = MAE for 0/1 outcomes
-        return (mae,)
+        result = (mae,)
+        if use_fitness_cache:
+            GLOBAL_FITNESS_CACHE.set(
+                cmd, points, fit_points, result, source="gui",
+                comparison_mode=cache_comparison,
+                mapper=mapper if cache_comparison == "ast" else None,
+            )
+        return result
     except Exception:
         return (worst_mae,)
 
@@ -339,6 +388,8 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, on_g
     min_genome_len = params["min_genome_len"]
     max_genome_len = params["max_genome_len"]
     max_genome_length = params.get("max_genome_length") or None
+    use_fitness_cache = params.get("use_fitness_cache", True)
+    cache_comparison = params.get("cache_comparison", "string")
 
     import random
     random.seed(run_seed)
@@ -350,18 +401,23 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, on_g
 
     mapper = TorqueMapper()
 
+    def _eval_kw():
+        return {"use_fitness_cache": use_fitness_cache, "cache_comparison": cache_comparison}
+
     def evaluate(ind, points=None):
+        kw = _eval_kw()
         if points is not None:
             # Test (or other) set: fit on train, score on points
             fit_on_train = points is points_test
             return evaluate_torque_mae(
                 ind, points, mapper,
                 fit_points=points_train if fit_on_train else None,
+                **kw,
             )
         # Fitness evaluation: use validation set if provided, else training set
         if points_fitness is not None:
-            return evaluate_torque_mae(ind, points_fitness, mapper, fit_points=points_train)
-        return evaluate_torque_mae(ind, points_train, mapper)
+            return evaluate_torque_mae(ind, points_fitness, mapper, fit_points=points_train, **kw)
+        return evaluate_torque_mae(ind, points_train, mapper, **kw)
 
     toolbox = base.Toolbox()
     toolbox.register("evaluate", evaluate)
@@ -445,6 +501,8 @@ if st.button("Start Evolution", type="primary"):
         "min_genome_len": min_genome_len,
         "max_genome_len": max_genome_len,
         "max_genome_length": max_genome_length_cap if max_genome_length_cap else None,
+        "use_fitness_cache": use_fitness_cache,
+        "cache_comparison": cache_comparison,
     }
 
     # Live preview: raw stats table for the current run (every run updates the preview)
@@ -643,12 +701,12 @@ if st.button("Start Evolution", type="primary"):
     try:
         results_dir = os.path.join(current_dir, "results")
         os.makedirs(results_dir, exist_ok=True)
-        
+
         # Create timestamped folder for this experiment
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         exp_dir = os.path.join(results_dir, f"evolution_{timestamp}")
         os.makedirs(exp_dir, exist_ok=True)
-        
+
         # Save config as JSON
         config = {
             "timestamp": timestamp,
@@ -668,17 +726,17 @@ if st.button("Start Evolution", type="primary"):
         config_path = os.path.join(exp_dir, "config.json")
         with open(config_path, "w") as f:
             json.dump(config, f, indent=2, default=str)
-        
+
         # Save per-run tables (CSV)
         for r_idx, run_rows in enumerate(all_runs_table_rows):
             run_dir = os.path.join(exp_dir, f"run_{r_idx + 1}")
             os.makedirs(run_dir, exist_ok=True)
-            
+
             # Convert to DataFrame and save
             df_run = pd.DataFrame(run_rows)
             csv_path = os.path.join(run_dir, "generations.csv")
             df_run.to_csv(csv_path, index=False)
-        
+
         # Save averaged table (across runs, per generation)
         avg_rows = []
         for gen_idx in range(ngen_actual):
@@ -698,7 +756,16 @@ if st.button("Start Evolution", type="primary"):
         df_avg = pd.DataFrame(avg_rows)
         avg_csv_path = os.path.join(exp_dir, "averaged_across_runs.csv")
         df_avg.to_csv(avg_csv_path, index=False)
-        
+
+        # Export fitness cache (if any) for inspection (JSON + CSV)
+        try:
+            GLOBAL_FITNESS_CACHE.export(exp_dir, basename="fitness_cache")
+        except Exception:
+            # Cache export failure should not break the main experiment save.
+            pass
+
+    except Exception as e:
+        st.warning(f"Could not save results to disk: {e}")
         # Save final chart as HTML with 3 panels: config, chart, best individual
         try:
             import plotly.graph_objects as go

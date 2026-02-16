@@ -1,40 +1,28 @@
 {
-  "torque_command": "vote(LR(C=1.0), DT(max_depth=5); voting=\"hard\")",
-  "timestamp": "2026-02-12T11:24:39.945931",
+  "torque_command": "bag ( XGB ( n_estimators = 1 , max_depth = 3 ) )",
+  "timestamp": "2026-02-16T15:32:59.120335",
   "variable_name": "estimator",
   "ast": {
     "type": "call",
-    "name": "vote",
+    "name": "bag",
     "pos": [
       {
         "type": "call",
-        "name": "LR",
+        "name": "XGB",
         "pos": [],
         "kw": {
-          "C": {
+          "n_estimators": {
             "type": "literal",
-            "value": 1.0
-          }
-        }
-      },
-      {
-        "type": "call",
-        "name": "DT",
-        "pos": [],
-        "kw": {
+            "value": 1
+          },
           "max_depth": {
             "type": "literal",
-            "value": 5
+            "value": 3
           }
         }
       }
     ],
-    "kw": {
-      "voting": {
-        "type": "literal",
-        "value": "hard"
-      }
-    }
+    "kw": {}
   },
-  "python_code": "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.tree import DecisionTreeClassifier\nfrom sklearn.naive_bayes import GaussianNB\n\nbase_estimator_0 = LogisticRegression(C=1.0)\nbase_estimator_1 = DecisionTreeClassifier(max_depth=5)\nestimator = VotingClassifier(estimators=[('model_0', base_estimator_0), ('model_1', base_estimator_1)], voting=\"hard\")"
+  "python_code": "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier\nfrom sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.tree import DecisionTreeClassifier\nfrom sklearn.naive_bayes import GaussianNB\nfrom sklearn.neighbors import KNeighborsClassifier\nfrom sklearn.svm import SVC\nfrom xgboost import XGBClassifier\n\nbase_estimator_0 = XGBClassifier(n_estimators=1, max_depth=3)\nestimator = BaggingClassifier(estimator=base_estimator_0)"
 }
