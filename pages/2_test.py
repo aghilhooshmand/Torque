@@ -473,6 +473,8 @@ with col_dsl_right:
         with col_met1:
             if "accuracy" in metrics:
                 st.metric("Accuracy", f"{metrics['accuracy']:.4f}")
+            if "mae" in metrics:
+                st.metric("MAE (error)", f"{metrics['mae']:.4f}", help="Mean Absolute Error = 1 − accuracy. Same as evolution fitness; lower is better.")
             if "f1_macro" in metrics:
                 st.metric("F1 (macro)", f"{metrics['f1_macro']:.4f}")
         with col_met2:

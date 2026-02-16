@@ -539,7 +539,9 @@ class TorqueRunner:
         metrics = {}
         
         # Basic classification metrics
-        metrics["accuracy"] = float(accuracy_score(y_true, y_pred))
+        acc = float(accuracy_score(y_true, y_pred))
+        metrics["accuracy"] = acc
+        metrics["mae"] = 1.0 - acc  # MAE = classification error rate (same as evolution fitness)
         
         # Precision, Recall, F1 (with different averaging)
         for average in ["macro", "micro", "weighted"]:
