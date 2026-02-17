@@ -32,6 +32,7 @@ if current_dir not in sys.path:
 
 from compiler import compile_ast_to_estimator
 from dataset_loader import load_dataset_from_config
+from model_cache import ModelCache
 from grape.grape import (
     Grammar,
     normalise_torque_phenotype,
@@ -68,6 +69,7 @@ def _load_evolution_config():
         "ga": {"ngen": 50, "pop_size": 100, "elite_size": 1, "halloffame_size": 1, "n_runs": 10, "cxpb": 0.8, "mutpb": 0.05, "tournsize": 7},
         "ge": {"min_init_tree_depth": 3, "max_init_tree_depth": 7, "max_tree_depth": 35, "max_wraps": 0, "codon_size": 255, "genome_representation": "list", "codon_consumption": "lazy", "min_genome_len": 20, "max_genome_len": 100, "max_genome_length_cap": 0},
         "dataset": {"file": None, "target_column": None, "delimiter": ",", "header": True, "test_size": 0.25, "use_validation_fitness": True, "validation_frac": 0.2, "base_random_state": 42},
+        "cache": {"use_cache": False, "comparison_mode": "string", "cache_path": "results/model_cache.csv"},
         "bounds": {"ngen": [1, 200], "pop_size": [4, 500], "elite_size": [0, 10], "halloffame_size": [1, 10], "n_runs": [1, 30], "cxpb": [0.0, 1.0], "mutpb": [0.0, 0.5], "tournsize": [2, 15], "min_init_tree_depth": [1, 20], "max_init_tree_depth": [2, 20], "max_tree_depth": [5, 100], "max_wraps": [0, 10], "codon_size": [2, 512], "min_genome_len": [5, 50], "max_genome_len": [20, 500], "max_genome_length_cap": [0, 2000], "test_size": [0.1, 0.5], "validation_frac": [0.1, 0.4], "base_random_state": [0, 99999]},
     }
     try:
@@ -282,14 +284,46 @@ if use_smote and not SMOTE_AVAILABLE:
     st.warning("⚠️ SMOTE requires `imbalanced-learn`. Install with: pip install imbalanced-learn — SMOTE will be skipped during evolution until then.")
 
 # ---------------------------------------------------------------------------
+# Model cache: use cache or not, comparison mode (string vs AST)
+# ---------------------------------------------------------------------------
+_cache = _evolution_cfg.get("cache", {})
+st.subheader("Model fitness cache")
+use_cache = st.checkbox(
+    "Use model fitness cache",
+    value=bool(_cache.get("use_cache", False)),
+    help=(
+        "Cache model + params + fitness after each evaluation. When the same model "
+        "is evaluated again on the same data, reuse cached fitness instead of retraining. "
+        "Speeds up evolution when phenotypes repeat."
+    ),
+    key="evolution_use_cache",
+)
+_cache_mode = str(_cache.get("comparison_mode", "string"))
+_cache_mode_index = 0 if _cache_mode == "string" else 1
+comparison_mode = st.selectbox(
+    "Cache comparison mode",
+    options=["string", "ast"],
+    index=_cache_mode_index,
+    format_func=lambda x: {
+        "string": "String: normalised model string (faster; param order matters, p1=2,p2=3 ≠ p2=3,p1=2)",
+        "ast": "AST: canonical AST (slower; order-independent, structurally correct)",
+    }[x],
+    disabled=not use_cache,
+    help="String: faster but p1=2,p2=3 and p2=3,p1=2 differ. AST: order-independent, better for correctness.",
+    key="evolution_cache_comparison_mode",
+)
+if use_cache:
+    st.caption("Cache saved as model_cache.csv in the experiment output folder. Same model+data = cache hit.")
+
+# ---------------------------------------------------------------------------
 # Fitness: MAE (error) — lower is better. MAE = 1 - accuracy (classification error rate).
 # ---------------------------------------------------------------------------
-def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
+def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None, model_cache=None, use_cache=False, comparison_mode="string"):
     """Return (MAE,) for this individual. Lower is better.
 
     If fit_points is None: fit and score on `points` (training fitness).
     If fit_points is given: fit on fit_points (train), score on `points` (e.g. test).
-    This avoids fitting on test data when computing fitness_test.
+    If use_cache: lookup by model+params only; on hit use fitness; on miss train and save to cache.
     """
     X_score, y_score = points
     phenotype = getattr(ind, "phenotype", None)
@@ -303,6 +337,10 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
         return (worst_mae,)
     try:
         ast = mapper.dsl_to_ast(cmd)
+        if use_cache and model_cache is not None:
+            cached = model_cache.get(cmd, ast=ast)
+            if cached is not None and "mae" in cached:
+                return (cached["mae"],)
         est = compile_ast_to_estimator(ast)
         if fit_points is not None:
             X_fit, y_fit = fit_points
@@ -311,6 +349,8 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
             est.fit(X_score, y_score)
         acc = accuracy_score(y_score, est.predict(X_score))
         mae = 1.0 - float(acc)  # error rate = MAE for 0/1 outcomes
+        if use_cache and model_cache is not None:
+            model_cache.put(cmd, {"accuracy": acc, "mae": mae}, ast=ast)
         return (mae,)
     except Exception:
         return (worst_mae,)
@@ -319,9 +359,10 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None):
 # ---------------------------------------------------------------------------
 # Run one evolution and return logbook (and optional per-gen best from callback)
 # ---------------------------------------------------------------------------
-def run_one_evolution(grammar, points_train, points_test, params, run_seed, on_generation_callback=None, points_fitness=None):
+def run_one_evolution(grammar, points_train, points_test, params, run_seed, on_generation_callback=None, points_fitness=None, model_cache=None, use_cache=False, comparison_mode="string"):
     """Run GE for one run; return logbook. Fitness = MAE (lower is better).
     If points_fitness is set: fitness = MAE on points_fitness (fit on points_train). Else: fitness = MAE on points_train.
+    If use_cache: lookup/save fitness by model+params only (no data in key).
     """
     ngen = params["ngen"]
     pop_size = params["pop_size"]
@@ -352,16 +393,22 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, on_g
 
     def evaluate(ind, points=None):
         if points is not None:
-            # Test (or other) set: fit on train, score on points
+            # Test set: fit on train, score on test (no cache)
             fit_on_train = points is points_test
             return evaluate_torque_mae(
                 ind, points, mapper,
                 fit_points=points_train if fit_on_train else None,
             )
-        # Fitness evaluation: use validation set if provided, else training set
+        # Fitness evaluation: use validation set if provided, else training set (with optional cache)
         if points_fitness is not None:
-            return evaluate_torque_mae(ind, points_fitness, mapper, fit_points=points_train)
-        return evaluate_torque_mae(ind, points_train, mapper)
+            return evaluate_torque_mae(
+                ind, points_fitness, mapper, fit_points=points_train,
+                model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
+            )
+        return evaluate_torque_mae(
+            ind, points_train, mapper,
+            model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
+        )
 
     toolbox = base.Toolbox()
     toolbox.register("evaluate", evaluate)
@@ -427,6 +474,23 @@ if "evolution_results" not in st.session_state:
 if st.button("Start Evolution", type="primary"):
     with st.spinner("Preparing..."):
         grammar = Grammar(GRAMMAR_PATH)
+
+    # Create experiment output folder at start (cache and results go here)
+    results_dir = os.path.join(current_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    exp_dir = os.path.join(results_dir, f"evolution_{timestamp}")
+    os.makedirs(exp_dir, exist_ok=True)
+
+    model_cache = None
+    if use_cache:
+        cache_path = os.path.join(exp_dir, "model_cache.csv")
+        model_cache = ModelCache(
+            cache_path=cache_path,
+            comparison_mode=comparison_mode,
+            normalise_fn=normalise_torque_phenotype,
+            mapper=TorqueMapper(),
+        )
 
     params = {
         "ngen": ngen,
@@ -569,7 +633,11 @@ if st.button("Start Evolution", type="primary"):
             points_fitness = None
         points_test = (X_test, y_test)
         running_history.clear()
-        lb = run_one_evolution(grammar, points_train, points_test, params, run_seed, on_generation_callback=on_gen, points_fitness=points_fitness)
+        lb = run_one_evolution(
+            grammar, points_train, points_test, params, run_seed,
+            on_generation_callback=on_gen, points_fitness=points_fitness,
+            model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
+        )
         logbooks.append(lb)
         if running_history:
             all_runs_table_rows.append([{**h["row"], "best_phenotype": h.get("best_individual", "")} for h in running_history])
@@ -639,15 +707,8 @@ if st.button("Start Evolution", type="primary"):
         "last_best": last_best,
     }
 
-    # Save results to files
+    # Save results to files (exp_dir already created at start of evolution)
     try:
-        results_dir = os.path.join(current_dir, "results")
-        os.makedirs(results_dir, exist_ok=True)
-        
-        # Create timestamped folder for this experiment
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        exp_dir = os.path.join(results_dir, f"evolution_{timestamp}")
-        os.makedirs(exp_dir, exist_ok=True)
         
         # Save config as JSON
         config = {
@@ -664,6 +725,7 @@ if st.button("Start Evolution", type="primary"):
             "use_validation_fitness": use_validation_fitness,
             "validation_frac": validation_frac if use_validation_fitness else None,
             "base_random_state": base_random_state,
+            "cache": {"use_cache": use_cache, "comparison_mode": comparison_mode, "cache_path": os.path.join(exp_dir, "model_cache.csv") if use_cache else None},
         }
         config_path = os.path.join(exp_dir, "config.json")
         with open(config_path, "w") as f:
