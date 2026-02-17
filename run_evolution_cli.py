@@ -14,6 +14,7 @@ import json
 import os
 import random
 import sys
+import time
 from datetime import datetime
 
 import numpy as np
@@ -100,11 +101,13 @@ def evaluate_torque_mae(
     try:
         ast = mapper.dsl_to_ast(cmd)
         est = compile_ast_to_estimator(ast)
+        t0 = time.perf_counter()
         if fit_points is not None:
             X_fit, y_fit = fit_points
             est.fit(X_fit, y_fit)
         else:
             est.fit(X_score, y_score)
+        training_time = time.perf_counter() - t0
         acc = accuracy_score(y_score, est.predict(X_score))
         result = (1.0 - float(acc),)
         training_time = _time.perf_counter() - t0
@@ -113,6 +116,7 @@ def evaluate_torque_mae(
                 cmd, points, fit_points, result, source="cli",
                 comparison_mode=cache_comparison,
                 mapper=mapper if cache_comparison == "ast" else None,
+                training_time=training_time,
             )
         if stats_collector is not None and gen is not None:
             stats_collector.record(gen, False, training_time)

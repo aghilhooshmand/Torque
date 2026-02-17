@@ -1,0 +1,2 @@
+gen,invalid,valid,avg,std,min,max,fitness_test,best_ind_length,avg_length,best_ind_nodes,avg_nodes,best_ind_depth,avg_depth,avg_used_codons,best_ind_used_codons,selection_time,generation_time,best_phenotype
+0,10,0,0.905,0.285,0.050000000000000044,1.0,,0,0.0,0,0.0,0,0.0,0.0,0,0,0.22765755653381348,

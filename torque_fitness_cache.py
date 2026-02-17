@@ -77,6 +77,7 @@ class FitnessCacheEntry:
     points_id: Optional[Tuple[int, int]]
     fit_points_id: Optional[Tuple[int, int]]
     hit_count: int = 0
+    training_time: float = 0.0  # seconds spent in est.fit() when first evaluated
 
 
 class TorqueFitnessCache:
@@ -113,6 +114,7 @@ class TorqueFitnessCache:
         source: str,
         comparison_mode: str = "string",
         mapper: Optional[Any] = None,
+        training_time: float = 0.0,
     ) -> None:
         key = make_cache_key(cmd, points, fit_points, comparison_mode, mapper)
         self._cache[key] = fitness
@@ -125,6 +127,7 @@ class TorqueFitnessCache:
                 points_id=_points_identity(points),
                 fit_points_id=_points_identity(fit_points),
                 hit_count=0,
+                training_time=training_time,
             )
 
     # --- export helpers ---
