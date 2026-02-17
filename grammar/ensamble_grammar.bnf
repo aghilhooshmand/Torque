@@ -10,7 +10,8 @@
              | "ada" "(" <model> ")"
 
 <models> ::= <model>
-           | <model> "," <models>
+           | <model> "," <model>
+           | <model> "," <model> "," <model>
 
 <model> ::= "LR" "(" <lr_params> ")"
           | "DT" "(" <dt_params> ")"
@@ -26,11 +27,7 @@
               | "C" "=" <positive_number> "," "max_iter" "=" <int_number>
 
 <dt_params> ::= "max_depth" "=" <int_number>
-             | "criterion" "=" <criterion_string>
              | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
-             | "max_depth" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
-             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string> "," "min_samples_split" "=" <min_samples_value>
-             | "max_depth" "=" <int_number> "," "min_samples_leaf" "=" <min_samples_leaf_value>
 
 <nb_params> ::= "var_smoothing" "=" <small_number>
 
@@ -41,30 +38,21 @@
 <knn_params> ::= "n_neighbors" "=" <int_number>
 
 <rf_params> ::= "n_estimators" "=" <int_number>
-              | "max_depth" "=" <int_number>
               | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number>
 
-<gb_params> ::= "learning_rate" "=" <positive_number>
-              | "n_estimators" "=" <int_number>
+<gb_params> ::= "n_estimators" "=" <int_number>
               | "n_estimators" "=" <int_number> "," "learning_rate" "=" <positive_number>
 
 <xgb_params> ::= "n_estimators" "=" <int_number>
-               | "max_depth" "=" <int_number>
                | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number>
 
 <penalty_string> ::= "l1" | "l2" | "elasticnet"
 
-<kernel_string> ::= "linear" | "rbf" | "poly" | "sigmoid"
+<kernel_string> ::= "linear" | "rbf"
 
 <criterion_string> ::= "gini" | "entropy" | "log_loss"
 
-<min_samples_value> ::= <int_number> | <min_samples_ratio>
-
-<min_samples_ratio> ::= "0.1" | "0.2" | "0.3" | "0.4" | "0.5"
-
-<min_samples_leaf_value> ::= <int_number> | <min_samples_ratio>
-
-<positive_number> ::= "0.1" | "0.5" | "1.0" | "10" | "50" | "100" | "200"
+<positive_number> ::= "0.1" | "0.5" | "1.0" | "10" | "50"
 
 <small_number> ::= "1e-9" | "1e-8" | "1e-7" | "1e-6"
 
@@ -82,5 +70,5 @@
 
 <model_name> ::= "LR" | "DT" | "NB" | "SVM" | "KNN" | "RF" | "GB" | "XGB"
 
-<int_number> ::= "1" | "2" | "3" | "5" | "10" | "50" | "100" | "200"
+<int_number> ::= "1" | "2" | "3" | "5" | "10" | "20" | "50"
 

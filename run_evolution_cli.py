@@ -39,6 +39,7 @@ from grape.grape import (
 from grape import algorithms as grape_algorithms
 from Torque_mapper import TorqueMapper
 from torque_fitness_cache import GLOBAL_FITNESS_CACHE
+from evolution_cache_stats import EvolutionCacheStats
 
 from deap import base, creator, tools
 
@@ -69,7 +70,10 @@ def evaluate_torque_mae(
     fit_points=None,
     use_fitness_cache=True,
     cache_comparison="string",
+    stats_collector=None,
+    gen=None,
 ):
+    import time as _time
     X_score, y_score = points
     phenotype = getattr(ind, "phenotype", None)
     if not phenotype:
@@ -88,8 +92,11 @@ def evaluate_torque_mae(
             mapper=mapper if cache_comparison == "ast" else None,
         )
         if cached is not None:
+            if stats_collector is not None and gen is not None:
+                stats_collector.record(gen, True, 0.0)
             return cached
 
+    t0 = _time.perf_counter()
     try:
         ast = mapper.dsl_to_ast(cmd)
         est = compile_ast_to_estimator(ast)
@@ -100,14 +107,19 @@ def evaluate_torque_mae(
             est.fit(X_score, y_score)
         acc = accuracy_score(y_score, est.predict(X_score))
         result = (1.0 - float(acc),)
+        training_time = _time.perf_counter() - t0
         if use_fitness_cache:
             GLOBAL_FITNESS_CACHE.set(
                 cmd, points, fit_points, result, source="cli",
                 comparison_mode=cache_comparison,
                 mapper=mapper if cache_comparison == "ast" else None,
             )
+        if stats_collector is not None and gen is not None:
+            stats_collector.record(gen, False, training_time)
         return result
     except Exception:
+        if stats_collector is not None and gen is not None:
+            stats_collector.record(gen, False, _time.perf_counter() - t0)
         return (worst_mae,)
 
 
@@ -138,19 +150,28 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, poin
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
 
     mapper = TorqueMapper()
+    stats_collector = EvolutionCacheStats()
+    current_gen = [0]
 
-    def _eval_kw():
-        return {"use_fitness_cache": use_fitness_cache, "cache_comparison": cache_comparison}
+    def _eval_kw(fitness_eval=False):
+        kw = {"use_fitness_cache": use_fitness_cache, "cache_comparison": cache_comparison}
+        if fitness_eval:
+            kw["stats_collector"] = stats_collector
+            kw["gen"] = current_gen[0]
+        return kw
+
+    def on_gen_start(g):
+        current_gen[0] = g
 
     def evaluate(ind, points=None):
-        kw = _eval_kw()
         if points is not None:
             fit_on_train = points is points_test
             return evaluate_torque_mae(
                 ind, points, mapper,
                 fit_points=points_train if fit_on_train else None,
-                **kw,
+                **_eval_kw(fitness_eval=False),
             )
+        kw = _eval_kw(fitness_eval=True)
         if points_fitness is not None:
             return evaluate_torque_mae(ind, points_fitness, mapper, fit_points=points_train, **kw)
         return evaluate_torque_mae(ind, points_train, mapper, **kw)
@@ -200,8 +221,9 @@ def run_one_evolution(grammar, points_train, points_test, params, run_seed, poin
         stats=stats,
         halloffame=hof,
         verbose=True,
+        on_generation_start=on_gen_start,
     )
-    return logbook, hof
+    return logbook, hof, stats_collector
 
 
 def main():
@@ -266,6 +288,7 @@ def main():
 
     logbooks = []
     best_per_run = []
+    cache_stats_per_run = []
 
     for r in range(n_runs):
         run_seed = base_seed + r
@@ -284,8 +307,9 @@ def main():
         points_test = (X_test, y_test)
 
         print(f"\n--- Run {r + 1}/{n_runs} (seed={run_seed}) ---")
-        logbook, hof = run_one_evolution(grammar, points_train, points_test, params, run_seed, points_fitness=points_fitness)
+        logbook, hof, run_stats = run_one_evolution(grammar, points_train, points_test, params, run_seed, points_fitness=points_fitness)
         logbooks.append(logbook)
+        cache_stats_per_run.append(run_stats.as_list())
         if hof and len(hof.items) > 0:
             best = hof.items[0]
             best_per_run.append(best)
@@ -367,6 +391,59 @@ def main():
 
         chart_div = fig.to_html(full_html=False, include_plotlyjs="cdn")
 
+        # Cache speedup charts (mean ± std over runs)
+        def _to_gen_dict(run_list):
+            return {row["gen"]: row for row in run_list}
+        needed_per_run = []
+        actual_per_run = []
+        time_est_per_run = []
+        time_actual_per_run = []
+        for run_list in cache_stats_per_run:
+            d = _to_gen_dict(run_list)
+            needed_per_run.append([d.get(g, {}).get("needed", np.nan) for g in gens])
+            actual_per_run.append([d.get(g, {}).get("actual", np.nan) for g in gens])
+            time_est_per_run.append([d.get(g, {}).get("time_est", np.nan) for g in gens])
+            time_actual_per_run.append([d.get(g, {}).get("time_actual", np.nan) for g in gens])
+        needed_arr = np.array(needed_per_run, dtype=float) if needed_per_run else np.full((1, ngen_actual), np.nan)
+        actual_arr = np.array(actual_per_run, dtype=float) if actual_per_run else np.full((1, ngen_actual), np.nan)
+        time_est_arr = np.array(time_est_per_run, dtype=float) if time_est_per_run else np.full((1, ngen_actual), np.nan)
+        time_actual_arr = np.array(time_actual_per_run, dtype=float) if time_actual_per_run else np.full((1, ngen_actual), np.nan)
+        cache_needed_mean = np.nanmean(needed_arr, axis=0)
+        cache_needed_std = np.nan_to_num(np.nanstd(needed_arr, axis=0), nan=0.0)
+        cache_actual_mean = np.nanmean(actual_arr, axis=0)
+        cache_actual_std = np.nan_to_num(np.nanstd(actual_arr, axis=0), nan=0.0)
+        cache_time_est_mean = np.nanmean(time_est_arr, axis=0)
+        cache_time_est_std = np.nan_to_num(np.nanstd(time_est_arr, axis=0), nan=0.0)
+        cache_time_actual_mean = np.nanmean(time_actual_arr, axis=0)
+        cache_time_actual_std = np.nan_to_num(np.nanstd(time_actual_arr, axis=0), nan=0.0)
+        total_time_est = np.nansum(time_est_arr)
+        total_time_actual = np.nansum(time_actual_arr)
+        speedup = total_time_est / total_time_actual if total_time_actual > 0 else 1.0
+
+        fig_cache_count = go.Figure()
+        fig_cache_count.add_trace(go.Scatter(x=gens, y=cache_needed_mean, name="Individuals to evaluate (no cache)", line=dict(color="blue", width=2), mode="lines"))
+        cn_upper = cache_needed_mean + cache_needed_std
+        cn_lower = cache_needed_mean - cache_needed_std
+        fig_cache_count.add_trace(go.Scatter(x=gens + gens[::-1], y=np.concatenate([cn_upper, cn_lower[::-1]]), fill="toself", fillcolor="rgba(0,0,255,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False))
+        fig_cache_count.add_trace(go.Scatter(x=gens, y=cache_actual_mean, name="Actually evaluated (cache misses)", line=dict(color="green", width=2), mode="lines"))
+        ca_upper = cache_actual_mean + cache_actual_std
+        ca_lower = cache_actual_mean - cache_actual_std
+        fig_cache_count.add_trace(go.Scatter(x=gens + gens[::-1], y=np.concatenate([ca_upper, ca_lower[::-1]]), fill="toself", fillcolor="rgba(0,128,0,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False))
+        fig_cache_count.update_layout(title="Count: individuals to evaluate vs actually evaluated (mean ± std over runs)", xaxis_title="Generation", yaxis_title="Count", template="plotly_white")
+        cache_count_div = fig_cache_count.to_html(full_html=False, include_plotlyjs=False)
+
+        fig_cache_time = go.Figure()
+        fig_cache_time.add_trace(go.Scatter(x=gens, y=cache_time_est_mean, name="Time without cache (estimated)", line=dict(color="orange", width=2), mode="lines"))
+        te_upper = cache_time_est_mean + cache_time_est_std
+        te_lower = cache_time_est_mean - cache_time_est_std
+        fig_cache_time.add_trace(go.Scatter(x=gens + gens[::-1], y=np.concatenate([te_upper, te_lower[::-1]]), fill="toself", fillcolor="rgba(255,165,0,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False))
+        fig_cache_time.add_trace(go.Scatter(x=gens, y=cache_time_actual_mean, name="Time with cache (actual)", line=dict(color="purple", width=2), mode="lines"))
+        ta_upper = cache_time_actual_mean + cache_time_actual_std
+        ta_lower = cache_time_actual_mean - cache_time_actual_std
+        fig_cache_time.add_trace(go.Scatter(x=gens + gens[::-1], y=np.concatenate([ta_upper, ta_lower[::-1]]), fill="toself", fillcolor="rgba(128,0,128,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False))
+        fig_cache_time.update_layout(title="Time (s): without cache vs with cache (mean ± std over runs)", xaxis_title="Generation", yaxis_title="Time (s)", template="plotly_white")
+        cache_time_div = fig_cache_time.to_html(full_html=False, include_plotlyjs=False)
+
         dataset_source = ds.get("file") or (f"UCI id={ds.get('uci_id')}" if ds.get("uci_id") is not None else "N/A")
         dataset_target = ds.get("target_column")
         config_lines = [
@@ -406,6 +483,14 @@ def main():
   <div class="panel">
     <h2>Evolution Chart</h2>
     {chart_div}
+  </div>
+  <div class="panel">
+    <h2>Cache Speedup (mean ± std over runs)</h2>
+    <p><strong>Count:</strong> individuals to evaluate vs actually evaluated</p>
+    {cache_count_div}
+    <p><strong>Time (s):</strong> without cache vs with cache</p>
+    {cache_time_div}
+    <p><strong>Speedup: {speedup:.2f}x</strong> (estimated time without cache / actual time with cache)</p>
   </div>
   <div class="panel">
     <h2>Best Individual (last run)</h2>

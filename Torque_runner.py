@@ -492,8 +492,14 @@ class TorqueRunner:
         except Exception as e:
             print(f"❌ Error: {str(e)}")
             import traceback
+            err_msg = str(e)
+            if "doesn't support sample_weight" in err_msg:
+                err_msg = (
+                    f"{err_msg} AdaBoostClassifier requires a base estimator that supports sample_weight "
+                    "(e.g. DT, LR, SVM, RF, NB, GB). KNeighborsClassifier does not. Use ada(DT()) or ada(LR()) instead."
+                )
             results["status"] = "error"
-            results["error"] = str(e)
+            results["error"] = err_msg
             results["traceback"] = traceback.format_exc()
         
         # Save to JSON file

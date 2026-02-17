@@ -154,12 +154,19 @@ def sample_stratified_by_class(
 
 
 def _dataframe_to_numeric(df: pd.DataFrame) -> np.ndarray:
-    """Convert DataFrame to numeric array; encode object/category columns if needed."""
+    """Convert DataFrame to numeric array; encode object/category/string columns if needed."""
     if df.empty:
         return np.zeros((0, 0))
-    for col in df.select_dtypes(include=["object", "category"]).columns:
-        df = df.copy()
-        df[col] = pd.Categorical(df[col]).codes
+    df = df.copy()
+    # Include object, category, and string (pandas nullable string dtype)
+    str_types = ["object", "category"]
+    if hasattr(pd, "StringDtype"):
+        str_types.append("string")
+    for col in df.columns:
+        if df[col].dtype.name in str_types or df[col].dtype.kind in ("O", "U", "S"):
+            df[col] = pd.Categorical(df[col].astype(str)).codes.astype(np.float64)
+        elif df[col].dtype.kind not in ("i", "u", "f", "b"):
+            df[col] = pd.Categorical(df[col].astype(str)).codes.astype(np.float64)
     return df.values.astype(np.float64, copy=False)
 
 

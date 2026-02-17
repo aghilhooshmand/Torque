@@ -116,9 +116,9 @@ with col_data_left:
                 )
 
                 if feature_cols and st.button("📥 Load Dataset", use_container_width=True):
-                    X = df[feature_cols].values
-                    y = df[target_col].values
-
+                    X, y = build_X_y_from_frames(
+                        df[feature_cols], df[[target_col]], target_col, feature_cols
+                    )
                     if pct_per_class_upload < 100:
                         X, y, kept_idx = sample_stratified_by_class(
                             X, y, float(pct_per_class_upload), random_state=int(upload_random_seed)
@@ -452,68 +452,96 @@ with col_dsl_left:
                         metrics_json_file=os.path.join(results_dir, "Torque_runner_result.json"),
                     )
                     st.session_state.test_results = results
-                    st.success("✅ DSL program executed successfully!")
+                    if results.get("status") == "error":
+                        st.error("❌ Run failed (see Results & Metrics)")
+                    else:
+                        st.success("✅ DSL program executed successfully!")
                     st.rerun()
             except Exception as e:
-                st.error(f"❌ Error running DSL: {e}")
                 import traceback
+                st.error(f"❌ Error running DSL: {e}")
                 st.code(traceback.format_exc(), language="python")
+                # Store error so results panel shows it instead of placeholder
+                st.session_state.test_results = {
+                    "status": "error",
+                    "error": str(e),
+                    "traceback": traceback.format_exc(),
+                    "metrics": {},
+                }
+                st.rerun()
 
 with col_dsl_right:
     st.subheader("📊 Results & Metrics")
     
     if st.session_state.test_results is not None:
         results = st.session_state.test_results
-        metrics = results.get("metrics", {})
-        
-        # Metrics
-        st.markdown("**Performance Metrics (from Torque_runner):**")
-        
-        col_met1, col_met2, col_met3 = st.columns(3)
-        with col_met1:
-            if "accuracy" in metrics:
-                st.metric("Accuracy", f"{metrics['accuracy']:.4f}")
-            if "mae" in metrics:
-                st.metric("MAE (error)", f"{metrics['mae']:.4f}", help="Mean Absolute Error = 1 − accuracy. Same as evolution fitness; lower is better.")
-            if "f1_macro" in metrics:
-                st.metric("F1 (macro)", f"{metrics['f1_macro']:.4f}")
-        with col_met2:
-            if "precision_macro" in metrics:
-                st.metric("Precision (macro)", f"{metrics['precision_macro']:.4f}")
-            if "recall_macro" in metrics:
-                st.metric("Recall (macro)", f"{metrics['recall_macro']:.4f}")
-        with col_met3:
-            if "roc_auc" in metrics:
-                st.metric("ROC-AUC", f"{metrics['roc_auc']:.4f}")
-        
-        # Classification report
-        class_report = results.get("classification_report")
-        if class_report:
-            st.markdown("**Detailed Classification Report:**")
-            st.json(class_report)
-        
-        # Confusion matrix
-        cm_info = results.get("confusion_matrix")
-        if cm_info:
-            st.markdown("**Confusion Matrix:**")
-            cm = np.array(cm_info.get("matrix", []))
-            labels = cm_info.get("labels", [])
-            if cm.size > 0:
-                df_cm = pd.DataFrame(cm, index=labels, columns=labels)
-                st.dataframe(df_cm, use_container_width=True)
-        
-        # Model info
-        est_info = results.get("estimator_info", {})
-        with st.expander("🔍 Model Information"):
-            if est_info:
-                st.json(est_info)
-            source = results.get("source", {})
-            mapping_file = results.get("mapping_file")
-            if source:
-                st.markdown("**Source info:**")
-                st.json(source)
-            if mapping_file:
-                st.markdown(f"- Mapping file: `{mapping_file}`")
+        if results.get("status") == "error":
+            st.error("Run failed")
+            st.code(results.get("error", "Unknown error"), language="text")
+            if results.get("traceback"):
+                with st.expander("Traceback"):
+                    st.code(results["traceback"], language="python")
+        else:
+            metrics = results.get("metrics", {})
+            def _fmt(v):
+                if v is None or (isinstance(v, float) and np.isnan(v)):
+                    return "N/A"
+                try:
+                    return f"{float(v):.4f}"
+                except (TypeError, ValueError):
+                    return str(v)
+            # Metrics
+            st.markdown("**Performance Metrics (from Torque_runner):**")
+            col_met1, col_met2, col_met3 = st.columns(3)
+            with col_met1:
+                if "accuracy" in metrics:
+                    st.metric("Accuracy", _fmt(metrics["accuracy"]))
+                if "mae" in metrics:
+                    st.metric("MAE (error)", _fmt(metrics["mae"]), help="Mean Absolute Error = 1 − accuracy. Same as evolution fitness; lower is better.")
+                if "f1_macro" in metrics:
+                    st.metric("F1 (macro)", _fmt(metrics["f1_macro"]))
+            with col_met2:
+                if "precision_macro" in metrics:
+                    st.metric("Precision (macro)", _fmt(metrics["precision_macro"]))
+                if "recall_macro" in metrics:
+                    st.metric("Recall (macro)", _fmt(metrics["recall_macro"]))
+            with col_met3:
+                if "roc_auc" in metrics:
+                    st.metric("ROC-AUC", _fmt(metrics["roc_auc"]))
+            # Classification report (sanitize NaN for JSON display)
+            class_report = results.get("classification_report")
+            if class_report:
+                st.markdown("**Detailed Classification Report:**")
+                def _sanitize(obj):
+                    if isinstance(obj, dict):
+                        return {k: _sanitize(v) for k, v in obj.items()}
+                    if isinstance(obj, (list, tuple)):
+                        return [_sanitize(x) for x in obj]
+                    if isinstance(obj, float) and np.isnan(obj):
+                        return None
+                    return obj
+                st.json(_sanitize(class_report))
+            # Confusion matrix
+            cm_info = results.get("confusion_matrix")
+            if cm_info:
+                st.markdown("**Confusion Matrix:**")
+                cm = np.array(cm_info.get("matrix", []))
+                labels = cm_info.get("labels", [])
+                if cm.size > 0:
+                    df_cm = pd.DataFrame(cm, index=labels, columns=labels)
+                    st.dataframe(df_cm, use_container_width=True)
+            # Model info
+            est_info = results.get("estimator_info", {})
+            with st.expander("🔍 Model Information"):
+                if est_info:
+                    st.json(est_info)
+                source = results.get("source", {})
+                mapping_file = results.get("mapping_file")
+                if source:
+                    st.markdown("**Source info:**")
+                    st.json(source)
+                if mapping_file:
+                    st.markdown(f"- Mapping file: `{mapping_file}`")
     
     else:
         st.info("💡 Enter a DSL program and click 'Run DSL' to see results")

@@ -484,13 +484,35 @@ class TorqueMapper:
                 # BaggingClassifier and AdaBoostClassifier use 'estimator' (sklearn 1.2+; was base_estimator)
                 if len(pos_args) > 1:
                     raise ValueError(f"{ensemble_name} only accepts one base estimator, got {len(pos_args)}")
+                # AdaBoost requires base estimator to support sample_weight; KNN does not
+                if ensemble_name == "ada" and pos_args:
+                    base_ast = pos_args[0]
+                    base_name = base_ast.get("name", "") if isinstance(base_ast, dict) else ""
+                    if base_name.upper() == "KNN":
+                        raise ValueError(
+                            "AdaBoostClassifier requires a base estimator that supports sample_weight. "
+                            "KNeighborsClassifier does not support it. Use DT, LR, SVM, RF, NB, or GB instead, e.g. ada(DT())"
+                        )
                 estimators_param = f"estimator={base_estimators[0]}"
         else:
             estimators_param = ""
         
-        # Convert keyword arguments
+        # Convert keyword arguments; each sklearn ensemble only accepts its own params
+        # VotingClassifier: voting, weights, flatten_transform, n_jobs, verbose
+        # StackingClassifier: final_estimator, cv, stack_method, passthrough, n_jobs, verbose
+        # BaggingClassifier: n_estimators, max_samples, max_features, bootstrap, bootstrap_features, oob_score, warm_start, n_jobs, random_state, verbose
+        # AdaBoostClassifier: n_estimators, learning_rate, random_state
+        valid_params = {
+            "vote": {"voting", "weights", "flatten_transform", "n_jobs", "verbose"},
+            "stack": {"final_estimator", "cv", "stack_method", "passthrough", "n_jobs", "verbose"},
+            "bag": {"n_estimators", "max_samples", "max_features", "bootstrap", "bootstrap_features", "oob_score", "warm_start", "n_jobs", "random_state", "verbose"},
+            "ada": {"n_estimators", "learning_rate", "random_state"},
+        }
         python_kwargs = {}
+        allowed = valid_params.get(ensemble_name, set())
         for key, value_node in kw_args.items():
+            if key not in allowed:
+                continue
             python_kwargs[key] = self._ast_to_python(value_node, "", indent + 1)
         
         # Combine all parameters
