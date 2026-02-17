@@ -32,7 +32,7 @@ if current_dir not in sys.path:
 
 from compiler import compile_ast_to_estimator
 from dataset_loader import load_dataset_from_config
-from model_cache import ModelCache
+from model_cache import ModelCache, measure_training_time
 from grape.grape import (
     Grammar,
     normalise_torque_phenotype,
@@ -344,13 +344,13 @@ def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None, mod
         est = compile_ast_to_estimator(ast)
         if fit_points is not None:
             X_fit, y_fit = fit_points
-            est.fit(X_fit, y_fit)
+            training_time_sec = measure_training_time(est.fit, X_fit, y_fit)
         else:
-            est.fit(X_score, y_score)
+            training_time_sec = measure_training_time(est.fit, X_score, y_score)
         acc = accuracy_score(y_score, est.predict(X_score))
         mae = 1.0 - float(acc)  # error rate = MAE for 0/1 outcomes
         if use_cache and model_cache is not None:
-            model_cache.put(cmd, {"accuracy": acc, "mae": mae}, ast=ast)
+            model_cache.put(cmd, {"accuracy": acc, "mae": mae, "training_time_sec": training_time_sec}, ast=ast)
         return (mae,)
     except Exception:
         return (worst_mae,)

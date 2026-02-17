@@ -12,6 +12,7 @@ import csv
 import hashlib
 import json
 import os
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 METRIC_COLUMNS = [
@@ -33,8 +34,16 @@ METRIC_COLUMNS = [
     "roc_auc_ovo",
     "log_loss",
     "average_precision",
+    "training_time_sec",
 ]
 CORE_COLUMNS = ["model_string", "cache_key", "hit_count"] + METRIC_COLUMNS
+
+
+def measure_training_time(fit_fn, *args, **kwargs) -> float:
+    """Time a fit call in seconds. Returns elapsed time as float."""
+    t0 = time.perf_counter()
+    fit_fn(*args, **kwargs)
+    return float(time.perf_counter() - t0)
 
 
 def _data_fingerprint(X, y, sample_size: int = 100) -> str:
