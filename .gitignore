@@ -73,3 +73,6 @@ logs/
 *.temp
 .cache/
 
+#folders
+data/
+results/
