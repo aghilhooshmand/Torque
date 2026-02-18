@@ -53,7 +53,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from registry import MODEL_REGISTRY, ENSEMBLE_REGISTRY
+from registry import MODEL_REGISTRY, ENSEMBLE_REGISTRY, VALID_PARAMS
 
 
 # ---------------------------------------------------------------------------
@@ -327,52 +327,36 @@ class TorqueMapper:
         
         return full_code
     
+    def _collect_used_models(self, ast: Dict) -> set:
+        """Recursively collect model names (LR, DT, XGB, etc.) used in AST."""
+        used = set()
+        if ast.get("type") == "literal" and ast.get("value") in self.model_registry:
+            used.add(ast["value"])
+        elif ast.get("type") == "call":
+            name = ast.get("name", "")
+            if name in self.model_registry:
+                used.add(name)
+            for child in ast.get("pos", []) + list(ast.get("kw", {}).values()):
+                if isinstance(child, dict):
+                    used |= self._collect_used_models(child)
+        return used
+
     def _generate_imports(self, ast: Dict) -> str:
         """
-        Generate necessary scikit-learn and xgboost imports based on AST content.
-        
-        Args:
-            ast: The AST dictionary representing the Torque command
-            
-        Returns:
-            String containing import statements
+        Generate necessary sklearn/xgboost imports based on AST content.
         """
-        # Collect model names used in AST (including nested calls)
-        used_models = self._collect_model_names(ast)
-        
-        import_lines = [
-            "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier",
-            "from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier",
+        used = self._collect_used_models(ast)
+        lines = [
+            "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier, RandomForestClassifier, GradientBoostingClassifier",
             "from sklearn.linear_model import LogisticRegression",
             "from sklearn.tree import DecisionTreeClassifier",
             "from sklearn.naive_bayes import GaussianNB",
-            "from sklearn.neighbors import KNeighborsClassifier",
             "from sklearn.svm import SVC",
+            "from sklearn.neighbors import KNeighborsClassifier",
         ]
-        if "XGB" in used_models and "XGB" in self.model_registry:
-            import_lines.append("from xgboost import XGBClassifier")
-        
-        return "\n".join(import_lines)
-    
-    def _collect_model_names(self, ast: Dict, acc: Optional[set] = None) -> set:
-        """Recursively collect all model/ensemble names used in the AST."""
-        if acc is None:
-            acc = set()
-        if ast.get("type") == "call":
-            name = ast.get("name", "")
-            if name in self.model_registry or name in self.ensemble_registry:
-                acc.add(name)
-            for pos in ast.get("pos", []):
-                if isinstance(pos, dict):
-                    self._collect_model_names(pos, acc)
-            for kw_val in ast.get("kw", {}).values():
-                if isinstance(kw_val, dict):
-                    self._collect_model_names(kw_val, acc)
-        elif ast.get("type") == "literal":
-            val = ast.get("value")
-            if isinstance(val, str) and val in self.model_registry:
-                acc.add(val)
-        return acc
+        if "XGB" in used:
+            lines.append("from xgboost import XGBClassifier")
+        return "\n".join(lines)
     
     def _ast_to_python(self, ast: Dict, variable_name: str, indent: int = 0) -> str:
         """
@@ -428,9 +412,13 @@ class TorqueMapper:
         indent_str = "    " * indent
         sklearn_class = self.model_registry[model_name].__name__
         
+        # Only pass params valid for this model (from sklearn VALID_PARAMS)
+        valid_params = VALID_PARAMS.get(model_name, set())
+        kw_args_filtered = {k: v for k, v in kw_args.items() if k in valid_params} if valid_params else kw_args
+        
         # Convert keyword arguments from AST to Python values
         python_kwargs = {}
-        for key, value_node in kw_args.items():
+        for key, value_node in kw_args_filtered.items():
             python_kwargs[key] = self._ast_to_python(value_node, "", indent + 1)
         
         # Build parameter string
@@ -481,39 +469,29 @@ class TorqueMapper:
                 estimators_list = f"[{', '.join(estimators_tuples)}]"
                 estimators_param = f"estimators={estimators_list}"
             else:
-                # BaggingClassifier and AdaBoostClassifier use 'estimator' (sklearn 1.2+; was base_estimator)
+                # BaggingClassifier and AdaBoostClassifier use 'estimator' (sklearn 1.2+)
                 if len(pos_args) > 1:
                     raise ValueError(f"{ensemble_name} only accepts one base estimator, got {len(pos_args)}")
-                # AdaBoost requires base estimator to support sample_weight; KNN does not
-                if ensemble_name == "ada" and pos_args:
-                    base_ast = pos_args[0]
-                    base_name = base_ast.get("name", "") if isinstance(base_ast, dict) else ""
-                    if base_name.upper() == "KNN":
-                        raise ValueError(
-                            "AdaBoostClassifier requires a base estimator that supports sample_weight. "
-                            "KNeighborsClassifier does not support it. Use DT, LR, SVM, RF, NB, or GB instead, e.g. ada(DT())"
-                        )
                 estimators_param = f"estimator={base_estimators[0]}"
         else:
             estimators_param = ""
         
-        # Convert keyword arguments; each sklearn ensemble only accepts its own params
-        # VotingClassifier: voting, weights, flatten_transform, n_jobs, verbose
-        # StackingClassifier: final_estimator, cv, stack_method, passthrough, n_jobs, verbose
-        # BaggingClassifier: n_estimators, max_samples, max_features, bootstrap, bootstrap_features, oob_score, warm_start, n_jobs, random_state, verbose
-        # AdaBoostClassifier: n_estimators, learning_rate, random_state
-        valid_params = {
-            "vote": {"voting", "weights", "flatten_transform", "n_jobs", "verbose"},
-            "stack": {"final_estimator", "cv", "stack_method", "passthrough", "n_jobs", "verbose"},
-            "bag": {"n_estimators", "max_samples", "max_features", "bootstrap", "bootstrap_features", "oob_score", "warm_start", "n_jobs", "random_state", "verbose"},
-            "ada": {"n_estimators", "learning_rate", "random_state"},
-        }
+        # Only pass params valid for this ensemble (from sklearn VALID_PARAMS)
+        valid_params = VALID_PARAMS.get(ensemble_name, set())
+        kw_args_filtered = {k: v for k, v in kw_args.items() if k in valid_params} if valid_params else kw_args
+
+        # Convert keyword arguments (final_estimator needs model instance, not string)
         python_kwargs = {}
-        allowed = valid_params.get(ensemble_name, set())
-        for key, value_node in kw_args.items():
-            if key not in allowed:
-                continue
-            python_kwargs[key] = self._ast_to_python(value_node, "", indent + 1)
+        for key, value_node in kw_args_filtered.items():
+            if key == "final_estimator" and value_node.get("type") == "literal":
+                model_name = value_node.get("value")
+                if model_name in self.model_registry:
+                    cls = self.model_registry[model_name]
+                    python_kwargs[key] = f"{cls.__name__}()"
+                else:
+                    python_kwargs[key] = self._ast_to_python(value_node, "", indent + 1)
+            else:
+                python_kwargs[key] = self._ast_to_python(value_node, "", indent + 1)
         
         # Combine all parameters
         all_params = []

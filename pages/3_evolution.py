@@ -6,11 +6,9 @@ the Grammar/Test pages. Set GE parameters, run evolution (multiple runs),
 see per-generation stats and a Plotly chart (train/test with STD).
 """
 
-import copy
 import json
 import os
 import sys
-import time
 from datetime import datetime
 
 import numpy as np
@@ -31,8 +29,9 @@ current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from compiler import compile_ast_to_estimator
 from dataset_loader import load_dataset_from_config
+from model_cache import ModelCache, measure_training_time
+from evolution_core import evaluate_torque_mae, run_one_evolution
 from grape.grape import (
     Grammar,
     normalise_torque_phenotype,
@@ -43,8 +42,6 @@ from grape.grape import (
 )
 from grape import algorithms as grape_algorithms
 from Torque_mapper import TorqueMapper
-from torque_fitness_cache import GLOBAL_FITNESS_CACHE
-from evolution_cache_stats import EvolutionCacheStats
 
 try:
     from deap import base, creator, tools
@@ -70,9 +67,20 @@ def _load_evolution_config():
     defaults = {
         "ga": {"ngen": 50, "pop_size": 100, "elite_size": 1, "halloffame_size": 1, "n_runs": 10, "cxpb": 0.8, "mutpb": 0.05, "tournsize": 7},
         "ge": {"min_init_tree_depth": 3, "max_init_tree_depth": 7, "max_tree_depth": 35, "max_wraps": 0, "codon_size": 255, "genome_representation": "list", "codon_consumption": "lazy", "min_genome_len": 20, "max_genome_len": 100, "max_genome_length_cap": 0},
-        "dataset": {"file": None, "target_column": None, "delimiter": ",", "header": True, "test_size": 0.25, "use_validation_fitness": True, "validation_frac": 0.2, "base_random_state": 42},
+        "dataset": {
+            "file": None,
+            "target_column": None,
+            "delimiter": ",",
+            "header": True,
+            "test_size": 0.25,
+            "use_validation_fitness": True,
+            "validation_frac": 0.2,
+            "base_random_state": 42,
+            "preprocessing": "none",
+            "use_smote": False,
+        },
+        "cache": {"use_cache": False, "comparison_mode": "string", "cache_path": "results/model_cache.csv"},
         "bounds": {"ngen": [1, 200], "pop_size": [4, 500], "elite_size": [0, 10], "halloffame_size": [1, 10], "n_runs": [1, 30], "cxpb": [0.0, 1.0], "mutpb": [0.0, 0.5], "tournsize": [2, 15], "min_init_tree_depth": [1, 20], "max_init_tree_depth": [2, 20], "max_tree_depth": [5, 100], "max_wraps": [0, 10], "codon_size": [2, 512], "min_genome_len": [5, 50], "max_genome_len": [20, 500], "max_genome_length_cap": [0, 2000], "test_size": [0.1, 0.5], "validation_frac": [0.1, 0.4], "base_random_state": [0, 99999]},
-        "cache": {"use_fitness_cache": True, "cache_comparison": "string"},
     }
     try:
         if os.path.isfile(EVOLUTION_CONFIG_PATH):
@@ -257,7 +265,7 @@ base_random_state = st.number_input("Base random seed (evolution.random_seed)", 
 preprocessing = st.selectbox(
     "Data Preprocessing",
     options=["none", "standard", "minmax", "robust"],
-    index=0,
+    index={"none": 0, "standard": 1, "minmax": 2, "robust": 3}.get(str(_ds.get("preprocessing", "none")), 0),
     format_func=lambda x: {
         "none": "None (use raw data)",
         "standard": "StandardScaler (mean=0, std=1)",
@@ -274,7 +282,7 @@ preprocessing = st.selectbox(
 
 use_smote = st.checkbox(
     "Balance training data with SMOTE",
-    value=False,
+    value=bool(_ds.get("use_smote", False)),
     help=(
         "Apply SMOTE (Synthetic Minority Over-sampling) to the training set only "
         "to balance classes. Recommended for imbalanced datasets. "
@@ -285,229 +293,37 @@ use_smote = st.checkbox(
 if use_smote and not SMOTE_AVAILABLE:
     st.warning("⚠️ SMOTE requires `imbalanced-learn`. Install with: pip install imbalanced-learn — SMOTE will be skipped during evolution until then.")
 
+# ---------------------------------------------------------------------------
+# Model cache: use cache or not, comparison mode (string vs AST)
+# ---------------------------------------------------------------------------
 _cache = _evolution_cfg.get("cache", {})
-use_fitness_cache = st.checkbox(
-    "Enable fitness cache (skip re-training identical models)",
-    value=bool(_cache.get("use_fitness_cache", True)),
-    help="When enabled, identical models reuse cached fitness instead of re-training. Speeds up evolution when phenotypes repeat.",
-    key="evolution_use_fitness_cache",
+st.subheader("Model fitness cache")
+use_cache = st.checkbox(
+    "Use model fitness cache",
+    value=bool(_cache.get("use_cache", False)),
+    help=(
+        "Cache model + params + fitness after each evaluation. When the same model "
+        "is evaluated again on the same data, reuse cached fitness instead of retraining. "
+        "Speeds up evolution when phenotypes repeat."
+    ),
+    key="evolution_use_cache",
 )
-_cache_comp = str(_cache.get("cache_comparison", "string"))
-cache_comparison = st.selectbox(
-    "Cache comparison (how to detect identical models)",
+_cache_mode = str(_cache.get("comparison_mode", "string"))
+_cache_mode_index = 0 if _cache_mode == "string" else 1
+comparison_mode = st.selectbox(
+    "Cache comparison mode",
     options=["string", "ast"],
-    index=0 if _cache_comp == "string" else 1,
+    index=_cache_mode_index,
     format_func=lambda x: {
-        "string": "String-based (normalized command)",
-        "ast": "AST-based (semantic comparison)",
+        "string": "String: normalised model string (faster; param order matters, p1=2,p2=3 ≠ p2=3,p1=2)",
+        "ast": "AST: canonical AST (slower; order-independent, structurally correct)",
     }[x],
-    disabled=not use_fitness_cache,
-    key="evolution_cache_comparison",
+    disabled=not use_cache,
+    help="String: faster but p1=2,p2=3 and p2=3,p1=2 differ. AST: order-independent, better for correctness.",
+    key="evolution_cache_comparison_mode",
 )
-with st.expander("Cache comparison: string vs AST"):
-    st.markdown("""
-- **String-based** (default): Compares the *normalized* command string (whitespace and quotes stripped).
-  - **Pros:** Fast, no extra parsing.
-  - **Cons:** Parameter *order* matters. `XGB(n_estimators=1, max_depth=3)` and `XGB(max_depth=3, n_estimators=1)` are treated as *different* even though they are the same model.
-
-- **AST-based**: Parses each command to an AST and compares a *canonical* representation.
-  - **Pros:** Semantic equality: parameter order is ignored. More cache hits when the same model appears with different parameter order.
-  - **Cons:** Slightly more overhead (parse + canonicalize per evaluation).
-""")
-
-# ---------------------------------------------------------------------------
-# Fitness: MAE (error) — lower is better. MAE = 1 - accuracy (classification error rate).
-# ---------------------------------------------------------------------------
-def evaluate_torque_mae(
-    ind,
-    points,
-    mapper,
-    worst_mae=1.0,
-    fit_points=None,
-    use_fitness_cache=True,
-    cache_comparison="string",
-    stats_collector=None,
-    gen=None,
-):
-    """Return (MAE,) for this individual. Lower is better.
-
-    If fit_points is None: fit and score on `points` (training fitness).
-    If fit_points is given: fit on fit_points (train), score on `points` (e.g. test).
-    This avoids fitting on test data when computing fitness_test.
-    """
-    X_score, y_score = points
-    phenotype = getattr(ind, "phenotype", None)
-    if not phenotype:
-        return (worst_mae,)
-    try:
-        cmd = normalise_torque_phenotype(phenotype)
-    except Exception:
-        return (worst_mae,)
-    if not cmd or "<" in cmd:
-        return (worst_mae,)
-
-    import time as _time
-    cache_hit = False
-    training_time = 0.0
-
-    if use_fitness_cache:
-        cached = GLOBAL_FITNESS_CACHE.get(
-            cmd, points, fit_points,
-            comparison_mode=cache_comparison,
-            mapper=mapper if cache_comparison == "ast" else None,
-        )
-        if cached is not None:
-            cache_hit = True
-            if stats_collector is not None and gen is not None:
-                stats_collector.record(gen, cache_hit, 0.0)
-            return cached
-
-    t0 = _time.perf_counter()
-    try:
-        ast = mapper.dsl_to_ast(cmd)
-        est = compile_ast_to_estimator(ast)
-        t0 = time.perf_counter()
-        if fit_points is not None:
-            X_fit, y_fit = fit_points
-            est.fit(X_fit, y_fit)
-        else:
-            est.fit(X_score, y_score)
-        training_time = time.perf_counter() - t0
-        acc = accuracy_score(y_score, est.predict(X_score))
-        mae = 1.0 - float(acc)  # error rate = MAE for 0/1 outcomes
-        result = (mae,)
-        training_time = _time.perf_counter() - t0
-        if use_fitness_cache:
-            GLOBAL_FITNESS_CACHE.set(
-                cmd, points, fit_points, result, source="gui",
-                comparison_mode=cache_comparison,
-                mapper=mapper if cache_comparison == "ast" else None,
-                training_time=training_time,
-            )
-        if stats_collector is not None and gen is not None:
-            stats_collector.record(gen, False, training_time)
-        return result
-    except Exception:
-        if stats_collector is not None and gen is not None:
-            stats_collector.record(gen, False, _time.perf_counter() - t0)
-        return (worst_mae,)
-
-
-# ---------------------------------------------------------------------------
-# Run one evolution and return logbook (and optional per-gen best from callback)
-# ---------------------------------------------------------------------------
-def run_one_evolution(grammar, points_train, points_test, params, run_seed, on_generation_callback=None, points_fitness=None):
-    """Run GE for one run; return logbook. Fitness = MAE (lower is better).
-    If points_fitness is set: fitness = MAE on points_fitness (fit on points_train). Else: fitness = MAE on points_train.
-    """
-    ngen = params["ngen"]
-    pop_size = params["pop_size"]
-    elite_size = params["elite_size"]
-    halloffame_size = params.get("halloffame_size", 1)
-    cxpb = params["cxpb"]
-    mutpb = params["mutpb"]
-    tournsize = params["tournsize"]
-    max_tree_depth = params["max_tree_depth"]
-    min_init_tree_depth = params.get("min_init_tree_depth", 3)
-    max_init_tree_depth = params.get("max_init_tree_depth", 7)
-    codon_size = params["codon_size"]
-    genome_representation = params.get("genome_representation", "list")
-    codon_consumption = params.get("codon_consumption", "lazy")
-    min_genome_len = params["min_genome_len"]
-    max_genome_len = params["max_genome_len"]
-    max_genome_length = params.get("max_genome_length") or None
-    use_fitness_cache = params.get("use_fitness_cache", True)
-    cache_comparison = params.get("cache_comparison", "string")
-
-    import random
-    random.seed(run_seed)
-    np.random.seed(run_seed)
-
-    # FitnessMin: lower MAE is better
-    if not hasattr(creator, "FitnessMin"):
-        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-
-    mapper = TorqueMapper()
-    stats_collector = EvolutionCacheStats()
-    current_gen = [0]
-
-    def _eval_kw(fitness_eval=False):
-        kw = {"use_fitness_cache": use_fitness_cache, "cache_comparison": cache_comparison}
-        if fitness_eval:
-            kw["stats_collector"] = stats_collector
-            kw["gen"] = current_gen[0]
-        return kw
-
-    def evaluate(ind, points=None):
-        if points is not None:
-            # Test (or other) set: fit on train, score on points — no stats
-            fit_on_train = points is points_test
-            return evaluate_torque_mae(
-                ind, points, mapper,
-                fit_points=points_train if fit_on_train else None,
-                **_eval_kw(fitness_eval=False),
-            )
-        # Fitness evaluation: use validation set if provided, else training set
-        kw = _eval_kw(fitness_eval=True)
-        if points_fitness is not None:
-            return evaluate_torque_mae(ind, points_fitness, mapper, fit_points=points_train, **kw)
-        return evaluate_torque_mae(ind, points_train, mapper, **kw)
-
-    def on_gen_start(g):
-        current_gen[0] = g
-
-    toolbox = base.Toolbox()
-    toolbox.register("evaluate", evaluate)
-    toolbox.register("mate", crossover_onepoint)
-    toolbox.register("mutate", mutation_int_flip_per_codon)
-    toolbox.register("select", selTournamentWithoutInvalids, tournsize=tournsize)
-
-    def clone_ind(ind):
-        c = copy.deepcopy(ind)
-        c.fitness = creator.FitnessMin()
-        return c
-
-    toolbox.register("clone", clone_ind)
-
-    population = random_initialisation_torque(
-        pop_size, grammar,
-        min_init_genome_length=min_genome_len,
-        max_init_genome_length=max_genome_len,
-        max_init_depth=max_init_tree_depth,
-        codon_size=codon_size,
-        codon_consumption=codon_consumption,
-        genome_representation=genome_representation,
-    )
-    for ind in population:
-        ind.fitness = creator.FitnessMin()
-
-    # Stats: avg, std, min, max for logbook (report_items format)
-    stats = tools.Statistics(lambda ind: ind.fitness.values[0] if ind.fitness.valid else None)
-    stats.register("avg", np.nanmean)
-    stats.register("std", np.nanstd)
-    stats.register("min", np.nanmin)
-    stats.register("max", np.nanmax)
-    hof = tools.HallOfFame(halloffame_size)
-
-    _, logbook = grape_algorithms.ge_eaSimpleWithElitism_torque(
-        population, toolbox, cxpb, mutpb, ngen, elite_size,
-        bnf_grammar=grammar,
-        codon_size=codon_size,
-        max_tree_depth=max_tree_depth,
-        max_genome_length=max_genome_length,
-        points_train=points_train,
-        points_test=points_test,
-        codon_consumption=codon_consumption,
-        report_items=[],
-        genome_representation=genome_representation,
-        stats=stats,
-        halloffame=hof,
-        verbose=False,
-        on_generation_callback=on_generation_callback,
-        on_generation_start=on_gen_start,
-    )
-
-    return logbook, stats_collector
+if use_cache:
+    st.caption("Cache saved as model_cache.csv in the experiment output folder. Same model+data = cache hit.")
 
 
 # ---------------------------------------------------------------------------
@@ -519,8 +335,73 @@ if "evolution_results" not in st.session_state:
     st.session_state.evolution_results = None
 
 if st.button("Start Evolution", type="primary"):
+    # Persist current UI settings back into evolution_config.json so CLI and future GUI runs share them
+    try:
+        _cfg_to_save = {
+            "description": _evolution_cfg.get("description", "GA/GE/GP and dataset settings. See dataset._help for how to use local data vs UCI."),
+            "ga": {
+                "ngen": int(ngen),
+                "pop_size": int(pop_size),
+                "elite_size": int(elite_size),
+                "halloffame_size": int(halloffame_size),
+                "n_runs": int(n_runs),
+                "cxpb": float(cxpb),
+                "mutpb": float(mutpb),
+                "tournsize": int(tournsize),
+            },
+            "ge": {
+                "min_init_tree_depth": int(min_init_tree_depth),
+                "max_init_tree_depth": int(max_init_tree_depth),
+                "max_tree_depth": int(max_tree_depth),
+                "max_wraps": int(max_wraps),
+                "codon_size": int(codon_size),
+                "genome_representation": str(genome_representation),
+                "codon_consumption": str(codon_consumption),
+                "min_genome_len": int(min_genome_len),
+                "max_genome_len": int(max_genome_len),
+                "max_genome_length_cap": int(max_genome_length_cap),
+            },
+            "dataset": {
+                **{k: v for k, v in _ds.items() if not k.startswith("_")},
+                "test_size": float(test_size),
+                "use_validation_fitness": bool(use_validation_fitness),
+                "validation_frac": float(validation_frac),
+                "base_random_state": int(base_random_state),
+                "preprocessing": str(preprocessing),
+                "use_smote": bool(use_smote),
+            },
+            "cache": {
+                "use_cache": bool(use_cache),
+                "comparison_mode": str(comparison_mode),
+                "cache_path": _evolution_cfg.get("cache", {}).get("cache_path", "results/model_cache.csv"),
+            },
+            "bounds": _evolution_cfg.get("bounds", {}),
+        }
+        with open(EVOLUTION_CONFIG_PATH, "w") as f:
+            json.dump(_cfg_to_save, f, indent=2, default=str)
+    except Exception:
+        # Do not block evolution if saving config fails
+        pass
+
     with st.spinner("Preparing..."):
         grammar = Grammar(GRAMMAR_PATH)
+
+    # Create experiment output folder at start (cache and results go here)
+    results_dir = os.path.join(current_dir, "results")
+    os.makedirs(results_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    exp_dir = os.path.join(results_dir, f"evolution_{timestamp}")
+    os.makedirs(exp_dir, exist_ok=True)
+
+    model_cache = None
+    if use_cache:
+        cache_path = os.path.join(exp_dir, "model_cache.csv")
+        model_cache = ModelCache(
+            cache_path=cache_path,
+            comparison_mode=comparison_mode,
+            normalise_fn=normalise_torque_phenotype,
+            mapper=TorqueMapper(),
+        )
 
     params = {
         "ngen": ngen,
@@ -539,8 +420,6 @@ if st.button("Start Evolution", type="primary"):
         "min_genome_len": min_genome_len,
         "max_genome_len": max_genome_len,
         "max_genome_length": max_genome_length_cap if max_genome_length_cap else None,
-        "use_fitness_cache": use_fitness_cache,
-        "cache_comparison": cache_comparison,
     }
 
     # Live preview: raw stats table for the current run (every run updates the preview)
@@ -612,7 +491,6 @@ if st.button("Start Evolution", type="primary"):
     progress = st.progress(0.0, text="Running evolution...")
     logbooks = []
     all_runs_table_rows = []  # list of list of rows: one list per run (for per-run evolution view)
-    cache_stats_per_run = []  # list of run_stats.as_list() per run for cache speedup charts
     last_best = None  # best individual from last gen of last run (for "Best individual" block)
 
     for r in range(n_runs):
@@ -666,9 +544,12 @@ if st.button("Start Evolution", type="primary"):
             points_fitness = None
         points_test = (X_test, y_test)
         running_history.clear()
-        lb, run_stats = run_one_evolution(grammar, points_train, points_test, params, run_seed, on_generation_callback=on_gen, points_fitness=points_fitness)
+        lb = run_one_evolution(
+            grammar, points_train, points_test, params, run_seed,
+            on_generation_callback=on_gen, points_fitness=points_fitness,
+            model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
+        )
         logbooks.append(lb)
-        cache_stats_per_run.append(run_stats.as_list())
         if running_history:
             all_runs_table_rows.append([{**h["row"], "best_phenotype": h.get("best_individual", "")} for h in running_history])
             last_best = running_history[-1]
@@ -719,39 +600,6 @@ if st.button("Start Evolution", type="primary"):
 
     gens = list(range(ngen_actual))
 
-    # Cache speedup stats: average across runs per generation
-    def _to_gen_dict(run_list):
-        return {row["gen"]: row for row in run_list}
-
-    needed_per_run = []
-    actual_per_run = []
-    time_est_per_run = []
-    time_actual_per_run = []
-    for run_list in cache_stats_per_run:
-        d = _to_gen_dict(run_list)
-        needed_per_run.append([d.get(g, {}).get("needed", np.nan) for g in gens])
-        actual_per_run.append([d.get(g, {}).get("actual", np.nan) for g in gens])
-        time_est_per_run.append([d.get(g, {}).get("time_est", np.nan) for g in gens])
-        time_actual_per_run.append([d.get(g, {}).get("time_actual", np.nan) for g in gens])
-
-    needed_arr = np.array(needed_per_run, dtype=float) if needed_per_run else np.full((1, ngen_actual), np.nan)
-    actual_arr = np.array(actual_per_run, dtype=float) if actual_per_run else np.full((1, ngen_actual), np.nan)
-    time_est_arr = np.array(time_est_per_run, dtype=float) if time_est_per_run else np.full((1, ngen_actual), np.nan)
-    time_actual_arr = np.array(time_actual_per_run, dtype=float) if time_actual_per_run else np.full((1, ngen_actual), np.nan)
-
-    cache_needed_mean = np.nanmean(needed_arr, axis=0)
-    cache_needed_std = np.nan_to_num(np.nanstd(needed_arr, axis=0), nan=0.0)
-    cache_actual_mean = np.nanmean(actual_arr, axis=0)
-    cache_actual_std = np.nan_to_num(np.nanstd(actual_arr, axis=0), nan=0.0)
-    cache_time_est_mean = np.nanmean(time_est_arr, axis=0)
-    cache_time_est_std = np.nan_to_num(np.nanstd(time_est_arr, axis=0), nan=0.0)
-    cache_time_actual_mean = np.nanmean(time_actual_arr, axis=0)
-    cache_time_actual_std = np.nan_to_num(np.nanstd(time_actual_arr, axis=0), nan=0.0)
-
-    total_time_est = np.nansum(time_est_arr)
-    total_time_actual = np.nansum(time_actual_arr)
-    speedup = total_time_est / total_time_actual if total_time_actual > 0 else 1.0
-
     st.session_state.evolution_results = {
         "logbooks": logbooks,
         "params": params,
@@ -768,27 +616,11 @@ if st.button("Start Evolution", type="primary"):
         "invalid_mean": invalid_mean,
         "all_runs_table_rows": all_runs_table_rows,
         "last_best": last_best,
-        "cache_needed_mean": cache_needed_mean,
-        "cache_needed_std": cache_needed_std,
-        "cache_actual_mean": cache_actual_mean,
-        "cache_actual_std": cache_actual_std,
-        "cache_time_est_mean": cache_time_est_mean,
-        "cache_time_est_std": cache_time_est_std,
-        "cache_time_actual_mean": cache_time_actual_mean,
-        "cache_time_actual_std": cache_time_actual_std,
-        "speedup": speedup,
     }
 
-    # Save results to files
+    # Save results to files (exp_dir already created at start of evolution)
     try:
-        results_dir = os.path.join(current_dir, "results")
-        os.makedirs(results_dir, exist_ok=True)
-
-        # Create timestamped folder for this experiment
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        exp_dir = os.path.join(results_dir, f"evolution_{timestamp}")
-        os.makedirs(exp_dir, exist_ok=True)
-
+        
         # Save config as JSON
         config = {
             "timestamp": timestamp,
@@ -804,21 +636,22 @@ if st.button("Start Evolution", type="primary"):
             "use_validation_fitness": use_validation_fitness,
             "validation_frac": validation_frac if use_validation_fitness else None,
             "base_random_state": base_random_state,
+            "cache": {"use_cache": use_cache, "comparison_mode": comparison_mode, "cache_path": os.path.join(exp_dir, "model_cache.csv") if use_cache else None},
         }
         config_path = os.path.join(exp_dir, "config.json")
         with open(config_path, "w") as f:
             json.dump(config, f, indent=2, default=str)
-
+        
         # Save per-run tables (CSV)
         for r_idx, run_rows in enumerate(all_runs_table_rows):
             run_dir = os.path.join(exp_dir, f"run_{r_idx + 1}")
             os.makedirs(run_dir, exist_ok=True)
-
+            
             # Convert to DataFrame and save
             df_run = pd.DataFrame(run_rows)
             csv_path = os.path.join(run_dir, "generations.csv")
             df_run.to_csv(csv_path, index=False)
-
+        
         # Save averaged table (across runs, per generation)
         avg_rows = []
         for gen_idx in range(ngen_actual):
@@ -838,16 +671,7 @@ if st.button("Start Evolution", type="primary"):
         df_avg = pd.DataFrame(avg_rows)
         avg_csv_path = os.path.join(exp_dir, "averaged_across_runs.csv")
         df_avg.to_csv(avg_csv_path, index=False)
-
-        # Export fitness cache (if any) for inspection (JSON + CSV)
-        try:
-            GLOBAL_FITNESS_CACHE.export(exp_dir, basename="fitness_cache")
-        except Exception:
-            # Cache export failure should not break the main experiment save.
-            pass
-
-    except Exception as e:
-        st.warning(f"Could not save results to disk: {e}")
+        
         # Save final chart as HTML with 3 panels: config, chart, best individual
         try:
             import plotly.graph_objects as go
@@ -1197,62 +1021,6 @@ if st.session_state.evolution_results is not None:
             template="plotly_white",
         )
         st.plotly_chart(fig, use_container_width=True)
-
-    # 6. Cache speedup charts (count-based and time-based, mean ± std over runs)
-    if "cache_needed_mean" in res and len(res.get("gens", [])) > 0:
-        st.header("6. Cache speedup (mean ± std over runs)")
-        st.caption("Individuals to evaluate vs actually evaluated; estimated time without cache vs actual time with cache.")
-
-        fig_cache_count = go.Figure()
-        cn_mean = np.asarray(res["cache_needed_mean"])
-        cn_std = np.asarray(res["cache_needed_std"])
-        ca_mean = np.asarray(res["cache_actual_mean"])
-        ca_std = np.asarray(res["cache_actual_std"])
-        fig_cache_count.add_trace(
-            go.Scatter(x=gens, y=cn_mean, name="Individuals to evaluate (no cache)", line=dict(color="blue", width=2), mode="lines")
-        )
-        cn_upper = cn_mean + cn_std
-        cn_lower = cn_mean - cn_std
-        fig_cache_count.add_trace(
-            go.Scatter(x=gens + gens[::-1], y=np.concatenate([cn_upper, cn_lower[::-1]]), fill="toself", fillcolor="rgba(0,0,255,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False)
-        )
-        fig_cache_count.add_trace(
-            go.Scatter(x=gens, y=ca_mean, name="Actually evaluated (cache misses)", line=dict(color="green", width=2), mode="lines")
-        )
-        ca_upper = ca_mean + ca_std
-        ca_lower = ca_mean - ca_std
-        fig_cache_count.add_trace(
-            go.Scatter(x=gens + gens[::-1], y=np.concatenate([ca_upper, ca_lower[::-1]]), fill="toself", fillcolor="rgba(0,128,0,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False)
-        )
-        fig_cache_count.update_layout(title="Count: individuals to evaluate vs actually evaluated", xaxis_title="Generation", yaxis_title="Count", template="plotly_white")
-        st.plotly_chart(fig_cache_count, use_container_width=True)
-
-        fig_cache_time = go.Figure()
-        te_mean = np.asarray(res["cache_time_est_mean"])
-        te_std = np.asarray(res["cache_time_est_std"])
-        ta_mean = np.asarray(res["cache_time_actual_mean"])
-        ta_std = np.asarray(res["cache_time_actual_std"])
-        fig_cache_time.add_trace(
-            go.Scatter(x=gens, y=te_mean, name="Time without cache (estimated)", line=dict(color="orange", width=2), mode="lines")
-        )
-        te_upper = te_mean + te_std
-        te_lower = te_mean - te_std
-        fig_cache_time.add_trace(
-            go.Scatter(x=gens + gens[::-1], y=np.concatenate([te_upper, te_lower[::-1]]), fill="toself", fillcolor="rgba(255,165,0,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False)
-        )
-        fig_cache_time.add_trace(
-            go.Scatter(x=gens, y=ta_mean, name="Time with cache (actual)", line=dict(color="purple", width=2), mode="lines")
-        )
-        ta_upper = ta_mean + ta_std
-        ta_lower = ta_mean - ta_std
-        fig_cache_time.add_trace(
-            go.Scatter(x=gens + gens[::-1], y=np.concatenate([ta_upper, ta_lower[::-1]]), fill="toself", fillcolor="rgba(128,0,128,0.1)", line=dict(color="rgba(255,255,255,0)"), showlegend=False)
-        )
-        fig_cache_time.update_layout(title="Time (seconds): without cache vs with cache", xaxis_title="Generation", yaxis_title="Time (s)", template="plotly_white")
-        st.plotly_chart(fig_cache_time, use_container_width=True)
-
-        speedup = res.get("speedup", 1.0)
-        st.metric("Speedup", f"{speedup:.2f}x", help="Estimated time without cache / actual time with cache")
 
     # Optional: show raw logbook for first run (expandable)
     with st.expander("Show raw logbook (first run)"):

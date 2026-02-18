@@ -1,17 +1,16 @@
 <program> ::= <ensemble>
 
-<ensemble> ::= "vote" "(" <models> ";" <ensemble_params> ")"
+<ensemble> ::= "vote" "(" <models> ";" <vote_params> ")"
              | "vote" "(" <models> ")"
-             | "stack" "(" <models> ";" <ensemble_params> ")"
+             | "stack" "(" <models> ";" <stack_params> ")"
              | "stack" "(" <models> ")"
-             | "bag" "(" <model> ";" <ensemble_params> ")"
+             | "bag" "(" <model> ";" <bag_params> ")"
              | "bag" "(" <model> ")"
-             | "ada" "(" <model> ";" <ensemble_params> ")"
+             | "ada" "(" <model> ";" <ada_params> ")"
              | "ada" "(" <model> ")"
 
 <models> ::= <model>
-           | <model> "," <model>
-           | <model> "," <model> "," <model>
+           | <model> "," <models>
 
 <model> ::= "LR" "(" <lr_params> ")"
           | "DT" "(" <dt_params> ")"
@@ -27,7 +26,11 @@
               | "C" "=" <positive_number> "," "max_iter" "=" <int_number>
 
 <dt_params> ::= "max_depth" "=" <int_number>
+             | "criterion" "=" <criterion_string>
              | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string>
+             | "max_depth" "=" <int_number> "," "min_samples_split" "=" <min_samples_value>
+             | "max_depth" "=" <int_number> "," "criterion" "=" <criterion_string> "," "min_samples_split" "=" <min_samples_value>
+             | "max_depth" "=" <int_number> "," "min_samples_leaf" "=" <min_samples_leaf_value>
 
 <nb_params> ::= "var_smoothing" "=" <small_number>
 
@@ -38,37 +41,55 @@
 <knn_params> ::= "n_neighbors" "=" <int_number>
 
 <rf_params> ::= "n_estimators" "=" <int_number>
+              | "max_depth" "=" <int_number>
               | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number>
 
-<gb_params> ::= "n_estimators" "=" <int_number>
+<gb_params> ::= "learning_rate" "=" <positive_number>
+              | "n_estimators" "=" <int_number>
               | "n_estimators" "=" <int_number> "," "learning_rate" "=" <positive_number>
 
 <xgb_params> ::= "n_estimators" "=" <int_number>
+               | "max_depth" "=" <int_number>
                | "n_estimators" "=" <int_number> "," "max_depth" "=" <int_number>
 
 <penalty_string> ::= "l1" | "l2" | "elasticnet"
 
-<kernel_string> ::= "linear" | "rbf"
+<kernel_string> ::= "linear" | "rbf" | "poly" | "sigmoid"
 
 <criterion_string> ::= "gini" | "entropy" | "log_loss"
+
+<min_samples_value> ::= <int_number> | <min_samples_ratio>
+
+<min_samples_ratio> ::= "0.1" | "0.2" | "0.3" | "0.4" 
+
+<min_samples_leaf_value> ::= <int_number> | <min_samples_ratio>
 
 <positive_number> ::= "0.1" | "0.5" | "1.0" | "10" | "50"
 
 <small_number> ::= "1e-9" | "1e-8" | "1e-7" | "1e-6"
 
-<ensemble_params> ::= <voting_param>
-                    | <final_estimator_param>
-                    | <n_estimators_param>
-
-<voting_param> ::= "voting" "=" <voting_string>
+<vote_params> ::= "voting" "=" <voting_string>
 
 <voting_string> ::= "hard" | "soft"
 
-<final_estimator_param> ::= "final_estimator" "=" <model_name>
+<stack_params> ::= "final_estimator" "=" <model_name>
+                 | "cv" "=" <int_number>
+                 | "final_estimator" "=" <model_name> "," "cv" "=" <int_number>
 
-<n_estimators_param> ::= "n_estimators" "=" <int_number>
+<bag_params> ::= "n_estimators" "=" <int_number>
+               | "max_samples" "=" <positive_number>
+               | "max_features" "=" <positive_number>
+               | "n_estimators" "=" <int_number> "," "max_samples" "=" <positive_number>
+               | "n_estimators" "=" <int_number> "," "max_features" "=" <positive_number>
+
+<ada_params> ::= "n_estimators" "=" <int_number>
+               | "learning_rate" "=" <positive_number>
+               | "algorithm" "=" <ada_algorithm_string>
+               | "n_estimators" "=" <int_number> "," "learning_rate" "=" <positive_number>
+               | "n_estimators" "=" <int_number> "," "algorithm" "=" <ada_algorithm_string>
+
+<ada_algorithm_string> ::= "SAMME" | "SAMME.R"
 
 <model_name> ::= "LR" | "DT" | "NB" | "SVM" | "KNN" | "RF" | "GB" | "XGB"
 
-<int_number> ::= "1" | "2" | "3" | "5" | "10" | "20" | "50"
-
+<int_number> ::= "1" | "2" | "3" | "5" | "10" | "50" 

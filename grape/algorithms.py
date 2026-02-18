@@ -1111,8 +1111,7 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
                 report_items=None,
                 genome_representation='list',
                 stats=None, halloffame=None,
-                verbose=__debug__, run_id=None, on_generation_callback=None,
-                on_generation_start=None):
+                verbose=__debug__, run_id=None, on_generation_callback=None):
     """
     Grammatical evolution algorithm for evolving Torque DSL commands (classification).
     Same flow as ge_eaSimpleWithElitism but defaults report_items=[] so no
@@ -1162,8 +1161,6 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
             logbook.header = ['gen', 'invalid'] + (stats.fields if stats else []) + ['best_ind_length', 'avg_length', 'best_ind_nodes', 'avg_nodes', 'best_ind_depth', 'avg_depth', 'avg_used_codons', 'best_ind_used_codons', 'invalid_count_min', 'invalid_count_avg', 'invalid_count_max', 'invalid_count_std', 'nodes_length_min', 'nodes_length_avg', 'nodes_length_max', 'nodes_length_std', 'structural_diversity', 'selection_time', 'generation_time']
 
     start_gen = time.time()
-    if on_generation_start is not None:
-        on_generation_start(0)
     # Torque-specific version expects toolbox.evaluate to take a single
     # individual argument; points_train should be closed over in the
     # evaluate function registered in the toolbox.
@@ -1284,8 +1281,6 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
             warnings.warn("No valid individuals; stopping Torque evolution early.")
             break
         start_gen = time.time()
-        if on_generation_start is not None:
-            on_generation_start(gen)
         if run_id:
             set_cache_context(run_id, gen)
 
