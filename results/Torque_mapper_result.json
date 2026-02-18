@@ -1,6 +1,6 @@
 {
   "torque_command": "vote(LR(C=1.0), DT(max_depth=5); voting=\"hard\")",
-  "timestamp": "2026-02-17T16:49:38.035114",
+  "timestamp": "2026-02-18T00:59:27.121643",
   "variable_name": "estimator",
   "ast": {
     "type": "call",
@@ -36,5 +36,5 @@
       }
     }
   },
-  "python_code": "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.tree import DecisionTreeClassifier\nfrom sklearn.naive_bayes import GaussianNB\n\nbase_estimator_0 = LogisticRegression(C=1.0)\nbase_estimator_1 = DecisionTreeClassifier(max_depth=5)\nestimator = VotingClassifier(estimators=[('model_0', base_estimator_0), ('model_1', base_estimator_1)], voting=\"hard\")"
+  "python_code": "from sklearn.ensemble import VotingClassifier, StackingClassifier, BaggingClassifier, AdaBoostClassifier, RandomForestClassifier, GradientBoostingClassifier\nfrom sklearn.linear_model import LogisticRegression\nfrom sklearn.tree import DecisionTreeClassifier\nfrom sklearn.naive_bayes import GaussianNB\nfrom sklearn.svm import SVC\nfrom sklearn.neighbors import KNeighborsClassifier\n\nbase_estimator_0 = LogisticRegression(C=1.0)\nbase_estimator_1 = DecisionTreeClassifier(max_depth=5)\nestimator = VotingClassifier(estimators=[('model_0', base_estimator_0), ('model_1', base_estimator_1)], voting=\"hard\")"
 }
