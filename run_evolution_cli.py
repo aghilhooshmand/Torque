@@ -480,6 +480,9 @@ def main():
             f"GA: ngen={ngen_actual}, pop_size={params['pop_size']}, elite={params['elite_size']}, halloffame={params['halloffame_size']}, n_runs={n_runs}",
             f"GE: max_tree_depth={params['max_tree_depth']}, codon_size={params['codon_size']}, genome_len=[{params['min_genome_len']},{params['max_genome_len']}]",
             f"Splits: test_size={test_size}, use_validation={use_validation}, val_frac={validation_frac if use_validation else 'N/A'}, base_seed={base_seed}",
+            f"Preprocessing: {preprocessing}",
+            f"SMOTE: {use_smote}",
+            f"Cache: use_cache={use_cache}, comparison_mode={comparison_mode}",
         ]
         config_text = "\n".join(config_lines)
 
@@ -490,13 +493,26 @@ def main():
             depth = last_best.get("best_depth")
             genome_len = last_best.get("best_genome_length")
             used_codons = last_best.get("best_used_codons")
+            used_portion = (
+                (used_codons / genome_len)
+                if genome_len and genome_len > 0 and used_codons is not None
+                else None
+            )
+
             best_lines = [
                 f"Phenotype: {pheno}",
-                f"Train MAE: {train_fit:.4f}" if train_fit is not None else "Train MAE: N/A",
-                f"Test MAE: {test_fit:.4f}" if test_fit is not None else "Test MAE: N/A",
+                f"Train MAE: {train_fit:.6f}" if train_fit is not None else "Train MAE: N/A",
+                f"Test MAE: {test_fit:.6f}" if test_fit is not None else "Test MAE: N/A",
+                f"Train accuracy: {1.0 - train_fit:.6f}" if train_fit is not None else "Train accuracy: N/A",
+                f"Test accuracy: {1.0 - test_fit:.6f}" if test_fit is not None else "Test accuracy: N/A",
                 f"Depth: {depth}",
                 f"Genome length: {genome_len}",
                 f"Used codons: {used_codons}",
+                (
+                    f"Used portion of genome: {used_portion:.2f}"
+                    if used_portion is not None
+                    else "Used portion of genome: N/A"
+                ),
             ]
         else:
             best_lines = ["No best individual recorded."]

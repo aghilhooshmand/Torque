@@ -23,8 +23,6 @@
     "max_genome_length_cap": 0
   },
   "dataset": {
-    "_help": "LOCAL: set 'file' and 'target_column'. UCI: set 'uci_id' to a number (e.g. 17); then 'file' is ignored.",
-    "uci_id": null,
     "file": "data/clinical_breast_cancer_RFC_preprocessed.csv",
     "target_column": "RFS_STATUS",
     "delimiter": ",",
@@ -32,10 +30,12 @@
     "test_size": 0.25,
     "use_validation_fitness": true,
     "validation_frac": 0.15,
-    "base_random_state": 42
+    "base_random_state": 42,
+    "preprocessing": "none",
+    "use_smote": true,
+    "uci_id": null
   },
   "cache": {
-    "_help": "Model fitness cache: skip retraining when same model+params+data seen before.",
     "use_cache": true,
     "comparison_mode": "string",
     "cache_path": "results/model_cache.csv"
