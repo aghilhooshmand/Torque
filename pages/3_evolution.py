@@ -6,7 +6,6 @@ the Grammar/Test pages. Set GE parameters, run evolution (multiple runs),
 see per-generation stats and a Plotly chart (train/test with STD).
 """
 
-import copy
 import json
 import os
 import sys
@@ -30,9 +29,9 @@ current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from compiler import compile_ast_to_estimator
 from dataset_loader import load_dataset_from_config
 from model_cache import ModelCache, measure_training_time
+from evolution_core import evaluate_torque_mae, run_one_evolution
 from grape.grape import (
     Grammar,
     normalise_torque_phenotype,
@@ -68,7 +67,18 @@ def _load_evolution_config():
     defaults = {
         "ga": {"ngen": 50, "pop_size": 100, "elite_size": 1, "halloffame_size": 1, "n_runs": 10, "cxpb": 0.8, "mutpb": 0.05, "tournsize": 7},
         "ge": {"min_init_tree_depth": 3, "max_init_tree_depth": 7, "max_tree_depth": 35, "max_wraps": 0, "codon_size": 255, "genome_representation": "list", "codon_consumption": "lazy", "min_genome_len": 20, "max_genome_len": 100, "max_genome_length_cap": 0},
-        "dataset": {"file": None, "target_column": None, "delimiter": ",", "header": True, "test_size": 0.25, "use_validation_fitness": True, "validation_frac": 0.2, "base_random_state": 42},
+        "dataset": {
+            "file": None,
+            "target_column": None,
+            "delimiter": ",",
+            "header": True,
+            "test_size": 0.25,
+            "use_validation_fitness": True,
+            "validation_frac": 0.2,
+            "base_random_state": 42,
+            "preprocessing": "none",
+            "use_smote": False,
+        },
         "cache": {"use_cache": False, "comparison_mode": "string", "cache_path": "results/model_cache.csv"},
         "bounds": {"ngen": [1, 200], "pop_size": [4, 500], "elite_size": [0, 10], "halloffame_size": [1, 10], "n_runs": [1, 30], "cxpb": [0.0, 1.0], "mutpb": [0.0, 0.5], "tournsize": [2, 15], "min_init_tree_depth": [1, 20], "max_init_tree_depth": [2, 20], "max_tree_depth": [5, 100], "max_wraps": [0, 10], "codon_size": [2, 512], "min_genome_len": [5, 50], "max_genome_len": [20, 500], "max_genome_length_cap": [0, 2000], "test_size": [0.1, 0.5], "validation_frac": [0.1, 0.4], "base_random_state": [0, 99999]},
     }
@@ -255,7 +265,7 @@ base_random_state = st.number_input("Base random seed (evolution.random_seed)", 
 preprocessing = st.selectbox(
     "Data Preprocessing",
     options=["none", "standard", "minmax", "robust"],
-    index=0,
+    index={"none": 0, "standard": 1, "minmax": 2, "robust": 3}.get(str(_ds.get("preprocessing", "none")), 0),
     format_func=lambda x: {
         "none": "None (use raw data)",
         "standard": "StandardScaler (mean=0, std=1)",
@@ -272,7 +282,7 @@ preprocessing = st.selectbox(
 
 use_smote = st.checkbox(
     "Balance training data with SMOTE",
-    value=False,
+    value=bool(_ds.get("use_smote", False)),
     help=(
         "Apply SMOTE (Synthetic Minority Over-sampling) to the training set only "
         "to balance classes. Recommended for imbalanced datasets. "
@@ -315,153 +325,6 @@ comparison_mode = st.selectbox(
 if use_cache:
     st.caption("Cache saved as model_cache.csv in the experiment output folder. Same model+data = cache hit.")
 
-# ---------------------------------------------------------------------------
-# Fitness: MAE (error) — lower is better. MAE = 1 - accuracy (classification error rate).
-# ---------------------------------------------------------------------------
-def evaluate_torque_mae(ind, points, mapper, worst_mae=1.0, fit_points=None, model_cache=None, use_cache=False, comparison_mode="string"):
-    """Return (MAE,) for this individual. Lower is better.
-
-    If fit_points is None: fit and score on `points` (training fitness).
-    If fit_points is given: fit on fit_points (train), score on `points` (e.g. test).
-    If use_cache: lookup by model+params only; on hit use fitness; on miss train and save to cache.
-    """
-    X_score, y_score = points
-    phenotype = getattr(ind, "phenotype", None)
-    if not phenotype:
-        return (worst_mae,)
-    try:
-        cmd = normalise_torque_phenotype(phenotype)
-    except Exception:
-        return (worst_mae,)
-    if not cmd or "<" in cmd:
-        return (worst_mae,)
-    try:
-        ast = mapper.dsl_to_ast(cmd)
-        if use_cache and model_cache is not None:
-            cached = model_cache.get(cmd, ast=ast)
-            if cached is not None and "mae" in cached:
-                return (cached["mae"],)
-        est = compile_ast_to_estimator(ast)
-        if fit_points is not None:
-            X_fit, y_fit = fit_points
-            training_time_sec = measure_training_time(est.fit, X_fit, y_fit)
-        else:
-            training_time_sec = measure_training_time(est.fit, X_score, y_score)
-        acc = accuracy_score(y_score, est.predict(X_score))
-        mae = 1.0 - float(acc)  # error rate = MAE for 0/1 outcomes
-        if use_cache and model_cache is not None:
-            model_cache.put(cmd, {"accuracy": acc, "mae": mae, "training_time_sec": training_time_sec}, ast=ast)
-        return (mae,)
-    except Exception:
-        return (worst_mae,)
-
-
-# ---------------------------------------------------------------------------
-# Run one evolution and return logbook (and optional per-gen best from callback)
-# ---------------------------------------------------------------------------
-def run_one_evolution(grammar, points_train, points_test, params, run_seed, on_generation_callback=None, points_fitness=None, model_cache=None, use_cache=False, comparison_mode="string"):
-    """Run GE for one run; return logbook. Fitness = MAE (lower is better).
-    If points_fitness is set: fitness = MAE on points_fitness (fit on points_train). Else: fitness = MAE on points_train.
-    If use_cache: lookup/save fitness by model+params only (no data in key).
-    """
-    ngen = params["ngen"]
-    pop_size = params["pop_size"]
-    elite_size = params["elite_size"]
-    halloffame_size = params.get("halloffame_size", 1)
-    cxpb = params["cxpb"]
-    mutpb = params["mutpb"]
-    tournsize = params["tournsize"]
-    max_tree_depth = params["max_tree_depth"]
-    min_init_tree_depth = params.get("min_init_tree_depth", 3)
-    max_init_tree_depth = params.get("max_init_tree_depth", 7)
-    codon_size = params["codon_size"]
-    genome_representation = params.get("genome_representation", "list")
-    codon_consumption = params.get("codon_consumption", "lazy")
-    min_genome_len = params["min_genome_len"]
-    max_genome_len = params["max_genome_len"]
-    max_genome_length = params.get("max_genome_length") or None
-
-    import random
-    random.seed(run_seed)
-    np.random.seed(run_seed)
-
-    # FitnessMin: lower MAE is better
-    if not hasattr(creator, "FitnessMin"):
-        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-
-    mapper = TorqueMapper()
-
-    def evaluate(ind, points=None):
-        if points is not None:
-            # Test set: fit on train, score on test (no cache)
-            fit_on_train = points is points_test
-            return evaluate_torque_mae(
-                ind, points, mapper,
-                fit_points=points_train if fit_on_train else None,
-            )
-        # Fitness evaluation: use validation set if provided, else training set (with optional cache)
-        if points_fitness is not None:
-            return evaluate_torque_mae(
-                ind, points_fitness, mapper, fit_points=points_train,
-                model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
-            )
-        return evaluate_torque_mae(
-            ind, points_train, mapper,
-            model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
-        )
-
-    toolbox = base.Toolbox()
-    toolbox.register("evaluate", evaluate)
-    toolbox.register("mate", crossover_onepoint)
-    toolbox.register("mutate", mutation_int_flip_per_codon)
-    toolbox.register("select", selTournamentWithoutInvalids, tournsize=tournsize)
-
-    def clone_ind(ind):
-        c = copy.deepcopy(ind)
-        c.fitness = creator.FitnessMin()
-        return c
-
-    toolbox.register("clone", clone_ind)
-
-    population = random_initialisation_torque(
-        pop_size, grammar,
-        min_init_genome_length=min_genome_len,
-        max_init_genome_length=max_genome_len,
-        max_init_depth=max_init_tree_depth,
-        codon_size=codon_size,
-        codon_consumption=codon_consumption,
-        genome_representation=genome_representation,
-    )
-    for ind in population:
-        ind.fitness = creator.FitnessMin()
-
-    # Stats: avg, std, min, max for logbook (report_items format)
-    stats = tools.Statistics(lambda ind: ind.fitness.values[0] if ind.fitness.valid else None)
-    stats.register("avg", np.nanmean)
-    stats.register("std", np.nanstd)
-    stats.register("min", np.nanmin)
-    stats.register("max", np.nanmax)
-    hof = tools.HallOfFame(halloffame_size)
-
-    _, logbook = grape_algorithms.ge_eaSimpleWithElitism_torque(
-        population, toolbox, cxpb, mutpb, ngen, elite_size,
-        bnf_grammar=grammar,
-        codon_size=codon_size,
-        max_tree_depth=max_tree_depth,
-        max_genome_length=max_genome_length,
-        points_train=points_train,
-        points_test=points_test,
-        codon_consumption=codon_consumption,
-        report_items=[],
-        genome_representation=genome_representation,
-        stats=stats,
-        halloffame=hof,
-        verbose=False,
-        on_generation_callback=on_generation_callback,
-    )
-
-    return logbook
-
 
 # ---------------------------------------------------------------------------
 # Start Evolution button and run
@@ -472,6 +335,54 @@ if "evolution_results" not in st.session_state:
     st.session_state.evolution_results = None
 
 if st.button("Start Evolution", type="primary"):
+    # Persist current UI settings back into evolution_config.json so CLI and future GUI runs share them
+    try:
+        _cfg_to_save = {
+            "description": _evolution_cfg.get("description", "GA/GE/GP and dataset settings. See dataset._help for how to use local data vs UCI."),
+            "ga": {
+                "ngen": int(ngen),
+                "pop_size": int(pop_size),
+                "elite_size": int(elite_size),
+                "halloffame_size": int(halloffame_size),
+                "n_runs": int(n_runs),
+                "cxpb": float(cxpb),
+                "mutpb": float(mutpb),
+                "tournsize": int(tournsize),
+            },
+            "ge": {
+                "min_init_tree_depth": int(min_init_tree_depth),
+                "max_init_tree_depth": int(max_init_tree_depth),
+                "max_tree_depth": int(max_tree_depth),
+                "max_wraps": int(max_wraps),
+                "codon_size": int(codon_size),
+                "genome_representation": str(genome_representation),
+                "codon_consumption": str(codon_consumption),
+                "min_genome_len": int(min_genome_len),
+                "max_genome_len": int(max_genome_len),
+                "max_genome_length_cap": int(max_genome_length_cap),
+            },
+            "dataset": {
+                **{k: v for k, v in _ds.items() if not k.startswith("_")},
+                "test_size": float(test_size),
+                "use_validation_fitness": bool(use_validation_fitness),
+                "validation_frac": float(validation_frac),
+                "base_random_state": int(base_random_state),
+                "preprocessing": str(preprocessing),
+                "use_smote": bool(use_smote),
+            },
+            "cache": {
+                "use_cache": bool(use_cache),
+                "comparison_mode": str(comparison_mode),
+                "cache_path": _evolution_cfg.get("cache", {}).get("cache_path", "results/model_cache.csv"),
+            },
+            "bounds": _evolution_cfg.get("bounds", {}),
+        }
+        with open(EVOLUTION_CONFIG_PATH, "w") as f:
+            json.dump(_cfg_to_save, f, indent=2, default=str)
+    except Exception:
+        # Do not block evolution if saving config fails
+        pass
+
     with st.spinner("Preparing..."):
         grammar = Grammar(GRAMMAR_PATH)
 
