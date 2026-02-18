@@ -37,7 +37,7 @@
   },
   "cache": {
     "use_cache": true,
-    "comparison_mode": "string",
+    "comparison_mode": "string"
   },
   "bounds": {
     "ngen": [
