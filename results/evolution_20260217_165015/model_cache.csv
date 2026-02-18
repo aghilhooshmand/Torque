@@ -1,0 +1,41 @@
+model_string,cache_key,hit_count,accuracy,mae
+bag ( KNN ( n_neighbors = 50 ) ; voting = soft ),bag ( KNN ( n_neighbors = 50 ) ; voting = soft ),1,0.6339285714285714,0.3660714285714286
+"bag ( SVM ( C = 100 , kernel = poly ) )","bag ( SVM ( C = 100 , kernel = poly ) )",4,0.6428571428571429,0.3571428571428571
+stack ( RF ( max_depth = 50 ) ),stack ( RF ( max_depth = 50 ) ),1,0.6160714285714286,0.3839285714285714
+vote ( NB ( var_smoothing = 1e-7 ) ),vote ( NB ( var_smoothing = 1e-7 ) ),0,0.6071428571428571,0.3928571428571429
+vote ( RF ( max_depth = 10 ) ),vote ( RF ( max_depth = 10 ) ),0,0.6294642857142857,0.3705357142857143
+bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 ),bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 ),3,0.6696428571428571,0.3303571428571429
+"vote ( DT ( max_depth = 10 , criterion = gini , min_samples_split = 0.3 ) )","vote ( DT ( max_depth = 10 , criterion = gini , min_samples_split = 0.3 ) )",2,0.6651785714285714,0.3348214285714286
+bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 10 ),bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 10 ),1,0.6473214285714286,0.3526785714285714
+bag ( KNN ( n_neighbors = 50 ) ; voting = hard ),bag ( KNN ( n_neighbors = 50 ) ; voting = hard ),0,0.6651785714285714,0.3348214285714286
+vote ( GB ( n_estimators = 50 ) ),vote ( GB ( n_estimators = 50 ) ),0,0.6294642857142857,0.3705357142857143
+"bag ( SVM ( C = 100 , kernel = rbf ) )","bag ( SVM ( C = 100 , kernel = rbf ) )",0,0.6517857142857143,0.3482142857142857
+bag ( LR ( penalty = l2 ) ; voting = hard ),bag ( LR ( penalty = l2 ) ; voting = hard ),0,0.6473214285714286,0.3526785714285714
+"bag ( SVM ( C = 100 , kernel = sigmoid ) )","bag ( SVM ( C = 100 , kernel = sigmoid ) )",0,0.5535714285714286,0.4464285714285714
+"bag ( SVM ( C = 10 , kernel = rbf ) )","bag ( SVM ( C = 10 , kernel = rbf ) )",0,0.6517857142857143,0.3482142857142857
+bag ( KNN ( n_neighbors = 50 ) ),bag ( KNN ( n_neighbors = 50 ) ),0,0.6517857142857143,0.3482142857142857
+bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 3 ),bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 3 ),0,0.6339285714285714,0.3660714285714286
+"vote ( DT ( max_depth = 10 , criterion = gini , min_samples_split = 0.1 ) )","vote ( DT ( max_depth = 10 , criterion = gini , min_samples_split = 0.1 ) )",0,0.6607142857142857,0.3392857142857143
+bag ( LR ( penalty = l2 ) ; final_estimator = GB ),bag ( LR ( penalty = l2 ) ; final_estimator = GB ),0,0.6428571428571429,0.3571428571428571
+vote ( RF ( max_depth = 2 ) ),vote ( RF ( max_depth = 2 ) ),0,0.6339285714285714,0.3660714285714286
+"bag ( LR ( C = 50 , max_iter = 200 ) )","bag ( LR ( C = 50 , max_iter = 200 ) )",0,0.6205357142857143,0.3794642857142857
+stack ( KNN ( n_neighbors = 50 ) ),stack ( KNN ( n_neighbors = 50 ) ),0,0.6071428571428571,0.3928571428571429
+"vote ( RF ( n_estimators = 100 , max_depth = 5 ) , LR ( penalty = elasticnet ) )","vote ( RF ( n_estimators = 100 , max_depth = 5 ) , LR ( penalty = elasticnet ) )",0,0.6116071428571429,0.3883928571428571
+"bag ( RF ( n_estimators = 3 , max_depth = 1 ) ; voting = hard )","bag ( RF ( n_estimators = 3 , max_depth = 1 ) ; voting = hard )",1,0.6071428571428571,0.3928571428571429
+ada ( LR ( C = 10 ) ; final_estimator = LR ),ada ( LR ( C = 10 ) ; final_estimator = LR ),4,0.6428571428571429,0.3571428571428571
+stack ( RF ( n_estimators = 3 ) ),stack ( RF ( n_estimators = 3 ) ),0,0.6116071428571429,0.3883928571428571
+ada ( LR ( C = 0.5 ) ; voting = hard ),ada ( LR ( C = 0.5 ) ; voting = hard ),1,0.6383928571428571,0.3616071428571429
+bag ( RF ( max_depth = 3 ) ; voting = soft ),bag ( RF ( max_depth = 3 ) ; voting = soft ),0,0.6116071428571429,0.3883928571428571
+ada ( LR ( C = 10 ) ; voting = soft ),ada ( LR ( C = 10 ) ; voting = soft ),0,0.6428571428571429,0.3571428571428571
+ada ( NB ( var_smoothing = 1e-9 ) ; final_estimator = GB ),ada ( NB ( var_smoothing = 1e-9 ) ; final_estimator = GB ),0,0.625,0.375
+ada ( LR ( C = 0.1 ) ; voting = hard ),ada ( LR ( C = 0.1 ) ; voting = hard ),0,0.6473214285714286,0.3526785714285714
+ada ( LR ( C = 10 ) ; n_estimators = 50 ),ada ( LR ( C = 10 ) ; n_estimators = 50 ),0,0.6428571428571429,0.3571428571428571
+ada ( LR ( penalty = l1 ) ; final_estimator = GB ),ada ( LR ( penalty = l1 ) ; final_estimator = GB ),1,0.59375,0.40625
+ada ( RF ( n_estimators = 1 ) ; voting = soft ),ada ( RF ( n_estimators = 1 ) ; voting = soft ),0,0.6160714285714286,0.3839285714285714
+stack ( NB ( var_smoothing = 1e-9 ) ),stack ( NB ( var_smoothing = 1e-9 ) ),0,0.6294642857142857,0.3705357142857143
+stack ( RF ( n_estimators = 50 ) ; voting = hard ),stack ( RF ( n_estimators = 50 ) ; voting = hard ),1,0.6339285714285714,0.3660714285714286
+"vote ( RF ( n_estimators = 3 , max_depth = 3 ) ; final_estimator = GB )","vote ( RF ( n_estimators = 3 , max_depth = 3 ) ; final_estimator = GB )",0,0.6205357142857143,0.3794642857142857
+stack ( RF ( n_estimators = 5 ) ; voting = soft ),stack ( RF ( n_estimators = 5 ) ; voting = soft ),0,0.6160714285714286,0.3839285714285714
+ada ( LR ( C = 10 ) ; voting = hard ),ada ( LR ( C = 10 ) ; voting = hard ),0,0.6428571428571429,0.3571428571428571
+ada ( LR ( C = 10 ) ; final_estimator = KNN ),ada ( LR ( C = 10 ) ; final_estimator = KNN ),0,0.6428571428571429,0.3571428571428571
+ada ( LR ( C = 200 ) ; final_estimator = GB ),ada ( LR ( C = 200 ) ; final_estimator = GB ),0,0.625,0.375

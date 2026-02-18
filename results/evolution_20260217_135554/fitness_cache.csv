@@ -1,0 +1,2 @@
+cmd,created_at,fit_points_id,fitness,hit_count,points_id,source,training_time
+bag ( SVM ( kernel = linear ) ),2026-02-17T13:55:54,"(12652816688, 12652815440)","(0.3482142857142857,)",0,"(12652778000, 12652780592)",gui,3.051138715999997

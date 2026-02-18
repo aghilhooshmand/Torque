@@ -1,0 +1,2 @@
+gen,train_min_mean,train_min_std,train_avg_mean,train_avg_std,train_max_mean,train_max_std,test_mean,test_std,invalid_mean
+0,0.6741071428571428,0.32589285714285715,0.9185267857142857,0.0814732142857143,1.0,0.0,,0.0,4.0

@@ -1,0 +1,4 @@
+gen,invalid,valid,avg,std,min,max,fitness_test,best_ind_length,avg_length,best_ind_nodes,avg_nodes,best_ind_depth,avg_depth,avg_used_codons,best_ind_used_codons,selection_time,generation_time,best_phenotype
+0,1,4,0.6160714285714286,0.31348060432140656,0.3571428571428571,1.0,0.37826961770623746,34,65.5,3,1.75,6,6.25,5.0,6,0.0,2.7126920223236084,"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )"
+1,0,5,0.3616071428571429,0.008928571428571442,0.3571428571428571,0.3794642857142857,0.38229376257545267,34,34.0,3,3.0,6,6.0,6.0,6,0.0002071857452392578,0.44912219047546387,"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )"
+2,0,5,0.48571428571428565,0.2571428571428572,0.3571428571428571,1.0,0.36820925553319916,34,34.0,3,3.0,6,6.0,6.0,6,5.5789947509765625e-05,0.44426512718200684,"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )"

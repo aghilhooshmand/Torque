@@ -1,0 +1,122 @@
+{
+  "description": "GA/GE/GP and dataset settings. See dataset._help for how to use local data vs UCI.",
+  "ga": {
+    "ngen": 2,
+    "pop_size": 5,
+    "elite_size": 1,
+    "halloffame_size": 1,
+    "n_runs": 2,
+    "cxpb": 0.8,
+    "mutpb": 0.05,
+    "tournsize": 4
+  },
+  "ge": {
+    "min_init_tree_depth": 3,
+    "max_init_tree_depth": 7,
+    "max_tree_depth": 35,
+    "max_wraps": 0,
+    "codon_size": 255,
+    "genome_representation": "list",
+    "codon_consumption": "lazy",
+    "min_genome_len": 20,
+    "max_genome_len": 100,
+    "max_genome_length_cap": 0
+  },
+  "dataset": {
+    "_help": "LOCAL: set 'file' and 'target_column'. UCI: set 'uci_id' to a number (e.g. 17); then 'file' is ignored.",
+    "uci_id": null,
+    "file": "data/clinical_breast_cancer_RFC_preprocessed.csv",
+    "target_column": "RFS_STATUS",
+    "delimiter": ",",
+    "header": true,
+    "test_size": 0.25,
+    "use_validation_fitness": true,
+    "validation_frac": 0.15,
+    "base_random_state": 42,
+    "preprocessing": "standard",
+    "use_smote": true
+  },
+  "cache": {
+    "use_cache": false,
+    "comparison_mode": "string",
+    "cache_path": null
+  },
+  "bounds": {
+    "ngen": [
+      1,
+      200
+    ],
+    "pop_size": [
+      4,
+      500
+    ],
+    "elite_size": [
+      0,
+      10
+    ],
+    "halloffame_size": [
+      1,
+      10
+    ],
+    "n_runs": [
+      1,
+      30
+    ],
+    "cxpb": [
+      0,
+      1
+    ],
+    "mutpb": [
+      0,
+      0.5
+    ],
+    "tournsize": [
+      2,
+      15
+    ],
+    "min_init_tree_depth": [
+      1,
+      20
+    ],
+    "max_init_tree_depth": [
+      2,
+      20
+    ],
+    "max_tree_depth": [
+      5,
+      100
+    ],
+    "max_wraps": [
+      0,
+      10
+    ],
+    "codon_size": [
+      2,
+      512
+    ],
+    "min_genome_len": [
+      5,
+      50
+    ],
+    "max_genome_len": [
+      20,
+      500
+    ],
+    "max_genome_length_cap": [
+      0,
+      2000
+    ],
+    "test_size": [
+      0.1,
+      0.5
+    ],
+    "validation_frac": [
+      0.1,
+      0.4
+    ],
+    "base_random_state": [
+      0,
+      99999
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+model_string,cache_key,hit_count,accuracy,mae,training_time_sec
+"bag ( DT ( max_depth = 50 ) ; n_estimators = 2 , max_features = 0.1 )","bag ( DT ( max_depth = 50 ) ; n_estimators = 2 , max_features = 0.1 )",39,0.48363636363636364,0.5163636363636364,0.006311586000038005
+"bag ( DT ( max_depth = 10 ) ; n_estimators = 2 , max_features = 0.1 )","bag ( DT ( max_depth = 10 ) ; n_estimators = 2 , max_features = 0.1 )",2,0.5418181818181819,0.45818181818181813,0.005907455999931699
+"bag ( DT ( max_depth = 50 ) ; n_estimators = 3 , max_features = 0.1 )","bag ( DT ( max_depth = 50 ) ; n_estimators = 3 , max_features = 0.1 )",0,0.38181818181818183,0.6181818181818182,0.01109205100010513
+"bag ( DT ( max_depth = 10 ) ; n_estimators = 1 , max_features = 0.1 )","bag ( DT ( max_depth = 10 ) ; n_estimators = 1 , max_features = 0.1 )",4,0.5381818181818182,0.4618181818181818,0.0034695429999374028
+"bag ( DT ( max_depth = 10 ) ; n_estimators = 3 , max_features = 0.1 )","bag ( DT ( max_depth = 10 ) ; n_estimators = 3 , max_features = 0.1 )",0,0.49454545454545457,0.5054545454545454,0.010949254000024666

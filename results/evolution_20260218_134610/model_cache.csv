@@ -1,0 +1,12 @@
+model_string,cache_key,hit_count,accuracy,mae,training_time_sec
+"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )","bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )",6,0.6607142857142857,0.3392857142857143,0.08476382000000005
+"bag ( SVM ( C = 50 , kernel = poly ) )","bag ( SVM ( C = 50 , kernel = poly ) )",0,0.6428571428571429,0.3571428571428571,0.809254025
+stack ( RF ( max_depth = 5 ) ),stack ( RF ( max_depth = 5 ) ),0,0.6383928571428571,0.3616071428571429,1.2384277529999999
+"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 3 , max_features = 1.0 )","bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 3 , max_features = 1.0 )",0,0.65625,0.34375,0.0056596009999996255
+"bag ( LR ( C = 0.1 , max_iter = 2 ) )","bag ( LR ( C = 0.1 , max_iter = 2 ) )",0,0.59375,0.40625,0.07231425899999966
+stack ( KNN ( n_neighbors = 2 ) ),stack ( KNN ( n_neighbors = 2 ) ),1,0.59375,0.40625,0.029738305999999604
+"vote ( RF ( n_estimators = 10 , max_depth = 50 ) , LR ( penalty = elasticnet ) )","vote ( RF ( n_estimators = 10 , max_depth = 50 ) , LR ( penalty = elasticnet ) )",0,0.6294642857142857,0.3705357142857143,0.3680652110000002
+bag ( KNN ( n_neighbors = 2 ) ),bag ( KNN ( n_neighbors = 2 ) ),0,0.5535714285714286,0.4464285714285714,0.017007974000000203
+"vote ( LR ( C = 0.1 , max_iter = 2 ) ; voting = soft )","vote ( LR ( C = 0.1 , max_iter = 2 ) ; voting = soft )",0,0.59375,0.40625,0.004394090999999989
+bag ( GB ( learning_rate = 0.1 ) ),bag ( GB ( learning_rate = 0.1 ) ),2,0.6294642857142857,0.3705357142857143,2.238572156000001
+bag ( GB ( learning_rate = 10 ) ),bag ( GB ( learning_rate = 10 ) ),0,0.5,0.5,2.1908748940000002

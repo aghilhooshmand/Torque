@@ -1,0 +1,10 @@
+model_string,cache_key,hit_count,accuracy,mae,training_time_sec
+bag ( KNN ( n_neighbors = 50 ) ; voting = soft ),bag ( KNN ( n_neighbors = 50 ) ; voting = soft ),0,0.7,0.30000000000000004,0.02312479999999084
+"bag ( SVM ( C = 100 , kernel = poly ) )","bag ( SVM ( C = 100 , kernel = poly ) )",0,0.7,0.30000000000000004,0.040232043999992584
+stack ( RF ( max_depth = 50 ) ),stack ( RF ( max_depth = 50 ) ),4,1.0,0.0,1.1112949850000007
+"stack ( DT ( max_depth = 50 , criterion = entropy , min_samples_split = 0.2 ) )","stack ( DT ( max_depth = 50 , criterion = entropy , min_samples_split = 0.2 ) )",0,0.95,0.050000000000000044,0.026730839999999034
+"bag ( LR ( C = 50 , max_iter = 200 ) )","bag ( LR ( C = 50 , max_iter = 200 ) )",1,0.95,0.050000000000000044,0.6057819340000066
+stack ( KNN ( n_neighbors = 50 ) ),stack ( KNN ( n_neighbors = 50 ) ),0,0.75,0.25,0.22307662400000083
+"bag ( LR ( C = 0.1 , max_iter = 2 ) )","bag ( LR ( C = 0.1 , max_iter = 2 ) )",0,0.35,0.65,0.06564629300000036
+bag ( LR ( penalty = elasticnet ) ),bag ( LR ( penalty = elasticnet ) ),0,0.75,0.25,0.6475945929999938
+vote ( NB ( var_smoothing = 1e-8 ) ; final_estimator = XGB ),vote ( NB ( var_smoothing = 1e-8 ) ; final_estimator = XGB ),2,1.0,0.0,0.002405321000011895

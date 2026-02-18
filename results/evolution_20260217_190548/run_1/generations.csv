@@ -1,0 +1,4 @@
+gen,invalid,valid,avg,std,min,max,fitness_test,best_ind_length,avg_length,best_ind_nodes,avg_nodes,best_ind_depth,avg_depth,avg_used_codons,best_ind_used_codons,selection_time,generation_time,best_phenotype
+0,1,3,0.4,0.3674234614174767,0.0,1.0,0.0,51,57.666666666666664,1,1.6666666666666667,7,6.333333333333333,5.0,5,0.0,1.2338180541992188,stack ( RF ( max_depth = 50 ) )
+1,0,4,0.25,0.4330127018922193,0.0,1.0,0.0,51,51.0,1,1.0,7,7.0,5.0,5,5.984306335449219e-05,1.1314260959625244,stack ( RF ( max_depth = 50 ) )
+2,0,4,0.012500000000000011,0.021650635094610987,0.0,0.050000000000000044,0.0,51,51.0,1,1.5,7,7.25,5.75,5,5.1975250244140625e-05,1.1625800132751465,stack ( RF ( max_depth = 50 ) )
