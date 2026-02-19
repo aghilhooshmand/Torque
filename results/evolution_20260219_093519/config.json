@@ -37,7 +37,8 @@
   },
   "cache": {
     "use_cache": true,
-    "comparison_mode": "string"
+    "comparison_mode": "string",
+    "cache_path": "/home/aghil/Documents/my document/limerick/projects/Torque/results/evolution_20260219_093519/model_cache.csv"
   },
   "bounds": {
     "ngen": [

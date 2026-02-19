@@ -1,0 +1,2 @@
+model_string,cache_key,hit_count,accuracy,mae,training_time_sec
+"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )","bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )",0,0.6236363636363637,0.37636363636363634,0.16014429001370445
