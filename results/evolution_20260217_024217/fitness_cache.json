@@ -1,0 +1,240 @@
+[
+  {
+    "cmd": "bag ( KNN ( n_neighbors = 50 ) ; voting = soft )",
+    "fitness": [
+      0.30000000000000004
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:15",
+    "points_id": [
+      125889938580912,
+      125889938579856
+    ],
+    "fit_points_id": [
+      125889938580528,
+      125889938581008
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "bag ( SVM ( C = 100 , kernel = poly ) )",
+    "fitness": [
+      0.30000000000000004
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:15",
+    "points_id": [
+      125889938580912,
+      125889938579856
+    ],
+    "fit_points_id": [
+      125889938580528,
+      125889938581008
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "stack ( RF ( max_depth = 50 ) )",
+    "fitness": [
+      0.0
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:15",
+    "points_id": [
+      125889938580912,
+      125889938579856
+    ],
+    "fit_points_id": [
+      125889938580528,
+      125889938581008
+    ],
+    "hit_count": 6
+  },
+  {
+    "cmd": "stack ( XGB ( max_depth = 50 ) )",
+    "fitness": [
+      0.050000000000000044
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:16",
+    "points_id": [
+      125889938580912,
+      125889938579856
+    ],
+    "fit_points_id": [
+      125889938580528,
+      125889938581008
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "stack ( NB ( var_smoothing = 1e-8 ) , SVM ( C = 1.0 ) , NB ( var_smoothing = 1e-9 ) , KNN ( n_neighbors = 2 ) , LR ( penalty = l2 ) )",
+    "fitness": [
+      0.050000000000000044
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:16",
+    "points_id": [
+      125889938580912,
+      125889938579856
+    ],
+    "fit_points_id": [
+      125889938580528,
+      125889938581008
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "stack ( LR ( C = 10 , max_iter = 50 ) )",
+    "fitness": [
+      0.050000000000000044
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:16",
+    "points_id": [
+      125889938580912,
+      125889938579856
+    ],
+    "fit_points_id": [
+      125889938580528,
+      125889938581008
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "bag ( LR ( C = 50 , max_iter = 200 ) )",
+    "fitness": [
+      0.050000000000000044
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:16",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 1
+  },
+  {
+    "cmd": "stack ( KNN ( n_neighbors = 50 ) )",
+    "fitness": [
+      0.25
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:17",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "bag ( LR ( C = 0.1 , max_iter = 2 ) )",
+    "fitness": [
+      0.65
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:17",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "bag ( LR ( penalty = elasticnet ) )",
+    "fitness": [
+      0.30000000000000004
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:17",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "vote ( NB ( var_smoothing = 1e-8 ) ; final_estimator = XGB )",
+    "fitness": [
+      0.0
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:17",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 2
+  },
+  {
+    "cmd": "vote ( NB ( var_smoothing = 1e-8 ) ; voting = hard )",
+    "fitness": [
+      0.0
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:17",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "vote ( XGB ( n_estimators = 10 , max_depth = 200 ) , XGB ( max_depth = 200 ) ; voting = hard )",
+    "fitness": [
+      0.0
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:17",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 0
+  },
+  {
+    "cmd": "vote ( NB ( var_smoothing = 1e-8 ) ; n_estimators = 200 )",
+    "fitness": [
+      0.0
+    ],
+    "source": "gui",
+    "created_at": "2026-02-17T02:42:17",
+    "points_id": [
+      125889777451248,
+      125889777454416
+    ],
+    "fit_points_id": [
+      125889777455280,
+      125889777453456
+    ],
+    "hit_count": 0
+  }
+]

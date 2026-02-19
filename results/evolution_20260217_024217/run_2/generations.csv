@@ -1,0 +1,4 @@
+gen,invalid,valid,avg,std,min,max,fitness_test,best_ind_length,avg_length,best_ind_nodes,avg_nodes,best_ind_depth,avg_depth,avg_used_codons,best_ind_used_codons,selection_time,generation_time,best_phenotype
+0,2,2,0.575,0.43084219849035216,0.050000000000000044,1.0,0.050000000000000044,93,91.5,2,1.5,6,6.5,4.5,5,0.0,0.32390284538269043,"bag ( LR ( C = 50 , max_iter = 200 ) )"
+1,0,4,0.25,0.257390753524675,0.0,0.65,0.0,93,93.0,2,1.75,7,6.25,5.0,6,3.4809112548828125e-05,0.31550049781799316,vote ( NB ( var_smoothing = 1e-8 ) ; final_estimator = XGB )
+2,0,4,0.0,0.0,0.0,0.0,0.0,93,93.0,2,2.5,7,7.25,7.5,6,2.5987625122070312e-05,0.06468963623046875,vote ( NB ( var_smoothing = 1e-8 ) ; final_estimator = XGB )

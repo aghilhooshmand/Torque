@@ -1,0 +1,17 @@
+model_string,cache_key,hit_count,accuracy,mae,training_time_sec
+"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )","bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )",0,0.5625,0.4375,0.02348659498966299
+"bag ( SVM ( C = 50 , kernel = poly ) )","bag ( SVM ( C = 50 , kernel = poly ) )",0,0.5982142857142857,0.4017857142857143,0.2401953090011375
+stack ( RF ( max_depth = 5 ) ),stack ( RF ( max_depth = 5 ) ),7,0.6294642857142857,0.3705357142857143,0.4086266790109221
+ada ( XGB ( max_depth = 2 ) ),ada ( XGB ( max_depth = 2 ) ),0,0.59375,0.40625,0.8222990330104949
+"stack ( RF ( n_estimators = 50 , max_depth = 10 ) )","stack ( RF ( n_estimators = 50 , max_depth = 10 ) )",0,0.6160714285714286,0.3839285714285714,0.28658167899993714
+"bag ( LR ( C = 0.1 , max_iter = 2 ) )","bag ( LR ( C = 0.1 , max_iter = 2 ) )",0,0.6383928571428571,0.3616071428571429,0.01286419499956537
+stack ( KNN ( n_neighbors = 2 ) ),stack ( KNN ( n_neighbors = 2 ) ),0,0.5625,0.4375,0.036928849993273616
+"vote ( RF ( n_estimators = 10 , max_depth = 50 ) , LR ( penalty = elasticnet ) )","vote ( RF ( n_estimators = 10 , max_depth = 50 ) , LR ( penalty = elasticnet ) )",0,0.6205357142857143,0.3794642857142857,0.2793664950004313
+bag ( KNN ( n_neighbors = 2 ) ),bag ( KNN ( n_neighbors = 2 ) ),0,0.5089285714285714,0.4910714285714286,0.004359007012681104
+"vote ( LR ( C = 0.1 , max_iter = 2 ) ; voting = soft )","vote ( LR ( C = 0.1 , max_iter = 2 ) ; voting = soft )",0,0.6026785714285714,0.3973214285714286,0.0018859970004996285
+"bag ( XGB ( n_estimators = 2 , max_depth = 1 ) )","bag ( XGB ( n_estimators = 2 , max_depth = 1 ) )",0,0.6428571428571429,0.3571428571428571,0.1417440740042366
+"bag ( LR ( C = 0.1 , max_iter = 50 ) )","bag ( LR ( C = 0.1 , max_iter = 50 ) )",0,0.6116071428571429,0.3883928571428571,0.06000179400143679
+bag ( XGB ( max_depth = 1 ) ),bag ( XGB ( max_depth = 1 ) ),0,0.6473214285714286,0.3526785714285714,0.166713119004271
+bag ( XGB ( max_depth = 50 ) ),bag ( XGB ( max_depth = 50 ) ),0,0.6026785714285714,0.3973214285714286,1.0867731920006918
+"bag ( XGB ( n_estimators = 2 , max_depth = 2 ) )","bag ( XGB ( n_estimators = 2 , max_depth = 2 ) )",0,0.6473214285714286,0.3526785714285714,0.10418785900401417
+"bag ( XGB ( n_estimators = 1 , max_depth = 2 ) )","bag ( XGB ( n_estimators = 1 , max_depth = 2 ) )",0,0.6116071428571429,0.3883928571428571,0.027849245991092175
