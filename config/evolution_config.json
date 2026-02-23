@@ -1,11 +1,11 @@
 {
   "description": "GA/GE/GP and dataset settings. See dataset._help for how to use local data vs UCI.",
   "ga": {
-    "ngen": 10,
+    "ngen": 5,
     "pop_size": 50,
     "elite_size": 1,
     "halloffame_size": 1,
-    "n_runs": 10,
+    "n_runs": 2,
     "cxpb": 0.8,
     "mutpb": 0.05,
     "tournsize": 4

@@ -30,6 +30,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 from dataset_loader import load_dataset_from_config
+from evolution_cache_stats import EvolutionCacheStats
 from model_cache import ModelCache, measure_training_time
 from evolution_core import run_one_evolution
 from evolution_live_log import LiveLogger
@@ -433,6 +434,7 @@ if st.button("Start Evolution", type="primary"):
     preview_placeholder = st.empty()
     running_history = []  # list of {record row for REPORT_COLUMNS, best_individual, ...}
     current_run_index = [0]  # mutable so callback can show "run X of N"
+    current_gen_ref = [0]  # mutable so evaluator sees current gen; callback sets gen+1 at end of each gen
 
     def _row_from_record(record):
         """Build a row dict with only REPORT_COLUMNS; use NaN for missing."""
@@ -475,6 +477,8 @@ if st.button("Start Evolution", type="primary"):
             train_fit = None
         if test_fit is not None and isinstance(test_fit, float) and np.isnan(test_fit):
             test_fit = None
+        if current_gen_ref is not None:
+            current_gen_ref[0] = gen + 1
         live_log.log_gen(current_run_index[0], n_runs, gen, params["ngen"], record, pheno)
         row = _row_from_record(record)
         row["min"] = train_fit if train_fit is not None else row.get("min")
@@ -500,9 +504,12 @@ if st.button("Start Evolution", type="primary"):
     logbooks = []
     all_runs_table_rows = []  # list of list of rows: one list per run (for per-run evolution view)
     last_best = None  # best individual from last gen of last run (for "Best individual" block)
+    all_cache_stats = []  # one EvolutionCacheStats per run (for cache analytics charts)
 
     for r in range(n_runs):
         current_run_index[0] = r
+        current_gen_ref[0] = 0
+        cache_stats_run = EvolutionCacheStats()
         progress.progress((r + 1) / n_runs, text=f"Run {r + 1} / {n_runs}")
         run_seed = base_random_state + r
         # Different train/test split per run (seed = base + run index)
@@ -557,8 +564,10 @@ if st.button("Start Evolution", type="primary"):
             grammar, points_train, points_test, params, run_seed,
             on_generation_callback=on_gen, points_fitness=points_fitness,
             model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
+            cache_stats=cache_stats_run, current_gen_ref=current_gen_ref,
         )
         logbooks.append(lb)
+        all_cache_stats.append(cache_stats_run)
         if running_history:
             all_runs_table_rows.append([{**h["row"], "best_phenotype": h.get("best_individual", "")} for h in running_history])
             last_best = running_history[-1]
@@ -614,6 +623,33 @@ if st.button("Start Evolution", type="primary"):
 
     gens = list(range(ngen_actual))
 
+    # Aggregate cache stats across runs (per-gen mean needed, actual, time_est, time_actual, speedup)
+    cache_needed_mean = cache_actual_mean = cache_time_est_mean = cache_time_actual_mean = cache_speedup = None
+    if all_cache_stats and ngen_actual > 0:
+        needed_per_run = []
+        actual_per_run = []
+        time_est_per_run = []
+        time_actual_per_run = []
+        for cs in all_cache_stats:
+            per = cs.per_gen()
+            needed_per_run.append([per.get(g, {}).get("needed", 0) for g in range(ngen_actual)])
+            actual_per_run.append([per.get(g, {}).get("actual", 0) for g in range(ngen_actual)])
+            time_est_per_run.append([per.get(g, {}).get("time_est", 0.0) for g in range(ngen_actual)])
+            time_actual_per_run.append([per.get(g, {}).get("time_actual", 0.0) for g in range(ngen_actual)])
+        needed_arr = np.array(needed_per_run)
+        actual_arr = np.array(actual_per_run)
+        time_est_arr = np.array(time_est_per_run)
+        time_actual_arr = np.array(time_actual_per_run)
+        cache_needed_mean = np.mean(needed_arr, axis=0)
+        cache_actual_mean = np.mean(actual_arr, axis=0)
+        cache_time_est_mean = np.mean(time_est_arr, axis=0)
+        cache_time_actual_mean = np.mean(time_actual_arr, axis=0)
+        cache_speedup = np.where(
+            cache_time_actual_mean > 0,
+            cache_time_est_mean / cache_time_actual_mean,
+            np.nan,
+        )
+
     st.session_state.evolution_results = {
         "logbooks": logbooks,
         "params": params,
@@ -632,6 +668,12 @@ if st.button("Start Evolution", type="primary"):
         "last_best": last_best,
         "live_log_path": live_log_path,
         "live_log_lines": list(live_log_lines),
+        "cache_needed_mean": cache_needed_mean,
+        "cache_actual_mean": cache_actual_mean,
+        "cache_time_est_mean": cache_time_est_mean,
+        "cache_time_actual_mean": cache_time_actual_mean,
+        "cache_speedup": cache_speedup,
+        "use_cache": use_cache,
     }
 
     # Save results to files (exp_dir already created at start of evolution)
@@ -1047,6 +1089,37 @@ if st.session_state.evolution_results is not None:
             template="plotly_white",
         )
         st.plotly_chart(fig, use_container_width=True)
+
+    # Cache analytics: needed vs actual evaluations, and time/speedup (when we have cache stats)
+    cache_needed_mean = res.get("cache_needed_mean")
+    cache_actual_mean = res.get("cache_actual_mean")
+    cache_time_est_mean = res.get("cache_time_est_mean")
+    cache_time_actual_mean = res.get("cache_time_actual_mean")
+    cache_speedup = res.get("cache_speedup")
+    if cache_needed_mean is not None and cache_actual_mean is not None and len(gens) > 0:
+        st.header("6. Cache analytics (evaluations and speedup)")
+        st.caption(
+            "**Needed** = fitness evaluations per generation (individuals to evaluate). "
+            "**Actual** = evaluations that ran (cache misses). Hits = Needed − Actual. "
+            "When cache is off, Needed = Actual. **Speedup** = estimated time without cache ÷ actual time with cache."
+        )
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+            fig_cache = make_subplots(rows=2, cols=1, subplot_titles=("Evaluations per generation (mean over runs)", "Time and speedup per generation"), vertical_spacing=0.12)
+            fig_cache.add_trace(go.Scatter(x=gens, y=cache_needed_mean, name="Needed", line=dict(color="blue", width=2), mode="lines"), row=1, col=1)
+            fig_cache.add_trace(go.Scatter(x=gens, y=cache_actual_mean, name="Actual (run)", line=dict(color="green", width=2), mode="lines"), row=1, col=1)
+            fig_cache.update_yaxes(title_text="Count", row=1, col=1)
+            fig_cache.add_trace(go.Scatter(x=gens, y=cache_time_est_mean, name="Time est. (no cache)", line=dict(color="orange", width=2), mode="lines"), row=2, col=1)
+            fig_cache.add_trace(go.Scatter(x=gens, y=cache_time_actual_mean, name="Time actual (with cache)", line=dict(color="red", width=2), mode="lines"), row=2, col=1)
+            speedup_ok = np.nan_to_num(np.asarray(cache_speedup), nan=0.0)
+            fig_cache.add_trace(go.Scatter(x=gens, y=speedup_ok, name="Speedup (est/actual)", line=dict(color="purple", width=2, dash="dash"), mode="lines"), row=2, col=1)
+            fig_cache.update_yaxes(title_text="Time (s) / Speedup", row=2, col=1)
+            fig_cache.update_xaxes(title_text="Generation", row=2, col=1)
+            fig_cache.update_layout(height=500, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02), template="plotly_white")
+            st.plotly_chart(fig_cache, use_container_width=True)
+        except Exception as e:
+            st.caption(f"Cache chart skipped: {e}")
 
     # Optional: show raw logbook for first run (expandable)
     with st.expander("Show raw logbook (first run)"):

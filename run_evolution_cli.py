@@ -26,6 +26,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from dataset_loader import load_dataset_from_config
+from evolution_cache_stats import EvolutionCacheStats
 from evolution_core import run_one_evolution
 from evolution_live_log import LiveLogger
 from model_cache import ModelCache
@@ -171,6 +172,8 @@ def main():
     logbooks = []
     all_runs_table_rows = []
     last_best = None
+    all_cache_stats = []
+    current_gen_ref = [0]
 
     for r in range(n_runs):
         run_seed = base_seed + r
@@ -226,6 +229,8 @@ def main():
 
         running_history = []
 
+        current_gen_ref[0] = 0
+        cache_stats_run = EvolutionCacheStats()
         live_log.log_run_start(r, n_runs, run_seed)
 
         def on_gen(gen, best_ind, record):
@@ -260,6 +265,8 @@ def main():
                 test_fit
             ):
                 test_fit = None
+            if current_gen_ref is not None:
+                current_gen_ref[0] = gen + 1
             live_log.log_gen(r, n_runs, gen, params["ngen"], record, pheno)
             row = _row_from_record(record, params["pop_size"])
             row["min"] = train_fit if train_fit is not None else row.get("min")
@@ -290,8 +297,11 @@ def main():
             model_cache=model_cache,
             use_cache=use_cache,
             comparison_mode=comparison_mode,
+            cache_stats=cache_stats_run,
+            current_gen_ref=current_gen_ref,
         )
         logbooks.append(lb)
+        all_cache_stats.append(cache_stats_run)
         if running_history:
             all_runs_table_rows.append(
                 [
@@ -346,6 +356,47 @@ def main():
     test_std = np.nan_to_num(test_std, nan=0.0)
 
     gens = list(range(ngen_actual))
+
+    # Aggregate cache stats and save cache_stats CSV
+    if all_cache_stats and ngen_actual > 0:
+        needed_per_run = []
+        actual_per_run = []
+        time_est_per_run = []
+        time_actual_per_run = []
+        for cs in all_cache_stats:
+            per = cs.per_gen()
+            needed_per_run.append([per.get(g, {}).get("needed", 0) for g in range(ngen_actual)])
+            actual_per_run.append([per.get(g, {}).get("actual", 0) for g in range(ngen_actual)])
+            time_est_per_run.append([per.get(g, {}).get("time_est", 0.0) for g in range(ngen_actual)])
+            time_actual_per_run.append([per.get(g, {}).get("time_actual", 0.0) for g in range(ngen_actual)])
+        needed_arr = np.array(needed_per_run)
+        actual_arr = np.array(actual_per_run)
+        time_est_arr = np.array(time_est_per_run)
+        time_actual_arr = np.array(time_actual_per_run)
+        cache_needed_mean = np.mean(needed_arr, axis=0)
+        cache_actual_mean = np.mean(actual_arr, axis=0)
+        cache_time_est_mean = np.mean(time_est_arr, axis=0)
+        cache_time_actual_mean = np.mean(time_actual_arr, axis=0)
+        cache_speedup = np.where(
+            cache_time_actual_mean > 0,
+            cache_time_est_mean / cache_time_actual_mean,
+            np.nan,
+        )
+        cache_rows = [
+            {
+                "gen": g,
+                "needed_mean": float(cache_needed_mean[g]),
+                "actual_mean": float(cache_actual_mean[g]),
+                "time_est_mean": float(cache_time_est_mean[g]),
+                "time_actual_mean": float(cache_time_actual_mean[g]),
+                "speedup": float(cache_speedup[g]) if not np.isnan(cache_speedup[g]) else None,
+            }
+            for g in range(ngen_actual)
+        ]
+        df_cache = pd.DataFrame(cache_rows)
+        cache_csv_path = os.path.join(out_dir, "cache_stats.csv")
+        df_cache.to_csv(cache_csv_path, index=False)
+        print(f"Cache stats saved: {cache_csv_path}")
 
     # Save combined per-run/per-generation log as a single CSV
     combined_rows = []

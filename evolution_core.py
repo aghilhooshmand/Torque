@@ -1,12 +1,13 @@
 import copy
 import os
 import sys
-from typing import Callable, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 from sklearn.metrics import accuracy_score
 
 from compiler import compile_ast_to_estimator
+from evolution_cache_stats import EvolutionCacheStats
 from model_cache import ModelCache, measure_training_time
 from grape.grape import (
     Grammar,
@@ -36,13 +37,17 @@ def evaluate_torque_mae(
     model_cache: Optional[ModelCache] = None,
     use_cache: bool = False,
     comparison_mode: str = "string",
+    cache_stats: Optional[EvolutionCacheStats] = None,
+    current_gen_ref: Optional[List[int]] = None,
 ):
     """Return (MAE,) for this individual. Lower is better.
 
     If fit_points is None: fit and score on `points` (training fitness).
     If fit_points is given: fit on fit_points (train), score on `points` (e.g. test).
     If use_cache: lookup by model+params only; on hit use fitness; on miss train and save to cache.
+    If cache_stats and current_gen_ref: record (gen, hit, training_time) for cache analytics.
     """
+    gen = current_gen_ref[0] if current_gen_ref else 0
     X_score, y_score = points
     phenotype = getattr(ind, "phenotype", None)
     if not phenotype:
@@ -58,6 +63,8 @@ def evaluate_torque_mae(
         if use_cache and model_cache is not None:
             cached = model_cache.get(cmd, ast=ast)
             if cached is not None and "mae" in cached:
+                if cache_stats is not None:
+                    cache_stats.record(gen, cache_hit=True, training_time=0.0)
                 return (cached["mae"],)
         est = compile_ast_to_estimator(ast)
         if fit_points is not None:
@@ -73,6 +80,8 @@ def evaluate_torque_mae(
                 {"accuracy": acc, "mae": mae, "training_time_sec": training_time_sec},
                 ast=ast,
             )
+        if cache_stats is not None:
+            cache_stats.record(gen, cache_hit=False, training_time=training_time_sec)
         return (mae,)
     except Exception:
         return (worst_mae,)
@@ -89,6 +98,8 @@ def run_one_evolution(
     model_cache: Optional[ModelCache] = None,
     use_cache: bool = False,
     comparison_mode: str = "string",
+    cache_stats: Optional[EvolutionCacheStats] = None,
+    current_gen_ref: Optional[List[int]] = None,
 ):
     """Run GE for one run; return logbook. Fitness = MAE (lower is better).
     If points_fitness is set: fitness = MAE on points_fitness (fit on points_train). Else: fitness = MAE on points_train.
@@ -142,6 +153,8 @@ def run_one_evolution(
                 model_cache=model_cache,
                 use_cache=use_cache,
                 comparison_mode=comparison_mode,
+                cache_stats=cache_stats,
+                current_gen_ref=current_gen_ref,
             )
         return evaluate_torque_mae(
             ind,
@@ -150,6 +163,8 @@ def run_one_evolution(
             model_cache=model_cache,
             use_cache=use_cache,
             comparison_mode=comparison_mode,
+            cache_stats=cache_stats,
+            current_gen_ref=current_gen_ref,
         )
 
     toolbox = base.Toolbox()
