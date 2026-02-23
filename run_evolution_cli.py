@@ -26,8 +26,9 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 from dataset_loader import load_dataset_from_config
+from evolution_core import run_one_evolution
+from evolution_live_log import LiveLogger
 from model_cache import ModelCache
-from evolution_core import evaluate_torque_mae, run_one_evolution
 from grape.grape import Grammar
 from deap import base
 
@@ -129,6 +130,10 @@ def main():
     with open(os.path.join(out_dir, "config.json"), "w") as f:
         json.dump(cfg_snapshot, f, indent=2, default=str)
 
+    live_log_path = os.path.join(out_dir, "evolution_live.log")
+    live_log = LiveLogger(live_log_path, echo_console=True)
+    live_log.log(f"Evolution started: {params['ngen']} gens, pop_size={params['pop_size']}, {n_runs} run(s)")
+
     REPORT_COLUMNS = [
         "gen",
         "invalid",
@@ -221,6 +226,8 @@ def main():
 
         running_history = []
 
+        live_log.log_run_start(r, n_runs, run_seed)
+
         def on_gen(gen, best_ind, record):
             nonlocal last_best
             pheno = ""
@@ -253,6 +260,7 @@ def main():
                 test_fit
             ):
                 test_fit = None
+            live_log.log_gen(r, n_runs, gen, params["ngen"], record, pheno)
             row = _row_from_record(record, params["pop_size"])
             row["min"] = train_fit if train_fit is not None else row.get("min")
             row["fitness_test"] = (
@@ -294,6 +302,12 @@ def main():
         else:
             all_runs_table_rows.append([])
 
+        live_log.log_run_end(r, n_runs)
+
+    live_log.log("Evolution finished.")
+    live_log.close()
+    print(f"Live log saved to: {live_log_path}")
+
     # Build aggregated stats (same schema as GUI)
     ngen_actual = len(logbooks[0]) if logbooks else 0
     train_min_per_run = []
@@ -333,13 +347,15 @@ def main():
 
     gens = list(range(ngen_actual))
 
-    # Save per-run tables (CSV)
+    # Save combined per-run/per-generation log as a single CSV
+    combined_rows = []
     for r_idx, run_rows in enumerate(all_runs_table_rows):
-        run_dir = os.path.join(out_dir, f"run_{r_idx + 1}")
-        os.makedirs(run_dir, exist_ok=True)
-        df_run = pd.DataFrame(run_rows)
-        csv_path = os.path.join(run_dir, "generations.csv")
-        df_run.to_csv(csv_path, index=False)
+        for row in run_rows:
+            combined_rows.append({"run_idx": r_idx + 1, **row})
+    if combined_rows:
+        df_log = pd.DataFrame(combined_rows)
+        log_csv_path = os.path.join(out_dir, "evolution_log.csv")
+        df_log.to_csv(log_csv_path, index=False)
 
     # Save averaged table (across runs, per generation)
     avg_rows = []

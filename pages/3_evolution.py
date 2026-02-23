@@ -31,7 +31,8 @@ if current_dir not in sys.path:
 
 from dataset_loader import load_dataset_from_config
 from model_cache import ModelCache, measure_training_time
-from evolution_core import evaluate_torque_mae, run_one_evolution
+from evolution_core import run_one_evolution
+from evolution_live_log import LiveLogger
 from grape.grape import (
     Grammar,
     normalise_torque_phenotype,
@@ -422,6 +423,12 @@ if st.button("Start Evolution", type="primary"):
         "max_genome_length": max_genome_length_cap if max_genome_length_cap else None,
     }
 
+    # Live running log (file + in-memory for display at end)
+    live_log_path = os.path.join(exp_dir, "evolution_live.log")
+    live_log_lines = []
+    live_log = LiveLogger(live_log_path, echo_console=False, echo_lines=live_log_lines)
+    live_log.log(f"Evolution started: {ngen} gens, pop_size={pop_size}, {n_runs} run(s)")
+
     # Live preview: raw stats table for the current run (every run updates the preview)
     preview_placeholder = st.empty()
     running_history = []  # list of {record row for REPORT_COLUMNS, best_individual, ...}
@@ -468,6 +475,7 @@ if st.button("Start Evolution", type="primary"):
             train_fit = None
         if test_fit is not None and isinstance(test_fit, float) and np.isnan(test_fit):
             test_fit = None
+        live_log.log_gen(current_run_index[0], n_runs, gen, params["ngen"], record, pheno)
         row = _row_from_record(record)
         row["min"] = train_fit if train_fit is not None else row.get("min")
         row["fitness_test"] = test_fit if test_fit is not None else row.get("fitness_test")
@@ -544,6 +552,7 @@ if st.button("Start Evolution", type="primary"):
             points_fitness = None
         points_test = (X_test, y_test)
         running_history.clear()
+        live_log.log_run_start(r, n_runs, run_seed)
         lb = run_one_evolution(
             grammar, points_train, points_test, params, run_seed,
             on_generation_callback=on_gen, points_fitness=points_fitness,
@@ -555,6 +564,11 @@ if st.button("Start Evolution", type="primary"):
             last_best = running_history[-1]
         else:
             all_runs_table_rows.append([])
+
+        live_log.log_run_end(r, n_runs)
+
+    live_log.log("Evolution finished.")
+    live_log.close()
 
     progress.empty()
     preview_placeholder.empty()
@@ -616,6 +630,8 @@ if st.button("Start Evolution", type="primary"):
         "invalid_mean": invalid_mean,
         "all_runs_table_rows": all_runs_table_rows,
         "last_best": last_best,
+        "live_log_path": live_log_path,
+        "live_log_lines": list(live_log_lines),
     }
 
     # Save results to files (exp_dir already created at start of evolution)
@@ -642,17 +658,18 @@ if st.button("Start Evolution", type="primary"):
         with open(config_path, "w") as f:
             json.dump(config, f, indent=2, default=str)
         
-        # Save per-run tables (CSV)
+        # Save combined per-run/per-generation log as a single CSV
+        # One row per (run, generation) with all metrics and best_phenotype
+        combined_rows = []
         for r_idx, run_rows in enumerate(all_runs_table_rows):
-            run_dir = os.path.join(exp_dir, f"run_{r_idx + 1}")
-            os.makedirs(run_dir, exist_ok=True)
-            
-            # Convert to DataFrame and save
-            df_run = pd.DataFrame(run_rows)
-            csv_path = os.path.join(run_dir, "generations.csv")
-            df_run.to_csv(csv_path, index=False)
+            for row in run_rows:
+                combined_rows.append({"run_idx": r_idx + 1, **row})
+        if combined_rows:
+            df_log = pd.DataFrame(combined_rows)
+            log_csv_path = os.path.join(exp_dir, "evolution_log.csv")
+            df_log.to_csv(log_csv_path, index=False)
         
-        # Save averaged table (across runs, per generation)
+        # Save averaged table (across runs, per generation) for charts
         avg_rows = []
         for gen_idx in range(ngen_actual):
             avg_row = {
@@ -855,6 +872,15 @@ if st.session_state.evolution_results is not None:
     st.divider()
     st.header("📊 Evolution results")
     st.success(f"Done. {n_runs} run(s), {len(gens)} generations. Fitness = MAE (error); lower is better.")
+
+    live_log_path = res.get("live_log_path")
+    live_log_lines = res.get("live_log_lines", [])
+    if live_log_path or live_log_lines:
+        with st.expander("📜 Live run log (where you were at each step)"):
+            if live_log_path:
+                st.caption(f"Log file: `{live_log_path}` (you can open or tail -f it while running next time)")
+            if live_log_lines:
+                st.text("\n".join(live_log_lines))
 
     st.header("3. Evolution through generations (per run)")
     st.caption(
