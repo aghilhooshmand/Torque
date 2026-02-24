@@ -1,31 +1,29 @@
-### Cache & Evaluation Backlog
+### Cache, Sampling & Evolution Backlog
 
-This file collects future ideas for improving the model cache and evolution analytics.  
-These are **design notes**, not yet implemented.
+Design ideas for future work on cache, fitness evaluation, and evolution analytics.  
+These are **not implemented yet**; they are notes for future development.
 
 ---
 
 ### 1. Faster cache lookups with hashed fingerprint
 
-**Goal:** Make cache lookup `O(1)` in memory and decouple the on-disk CSV format from the in-memory index.
+**Goal:** Make cache lookup `O(1)` in memory and decouple the on‑disk CSV from the in‑memory index.
 
-**High-level idea**
-- Keep an in-memory `dict`:
-  - `index: Dict[str, int]` mapping `cache_key` → index into `self._rows`.
-- `cache_key` is a **fingerprint** derived from the normalised model string or AST.
+**Idea**
+- Maintain an in‑memory index: `cache_key → row index` for `model_cache._rows`.
+- `cache_key` is a canonical fingerprint from the normalised model string or AST.
 
-**Pseudo-code sketch**
+**Pseudo-code**
 
 ```python
 class ModelCache:
     def __init__(...):
         self._rows: List[Dict[str, Any]] = []
         self._index: Dict[str, int] = {}
-        self._load()  # fills _rows and _index
+        self._load()
 
     def _load(self):
-        self._rows = []
-        self._index = {}
+        self._rows, self._index = [], {}
         if os.path.exists(self.cache_path):
             for i, row in enumerate(csv.DictReader(...)):
                 self._rows.append(row)
@@ -33,23 +31,22 @@ class ModelCache:
                 if key:
                     self._index[key] = i
 
-    def _compute_cache_key(self, model_string: str, ast: Optional[Dict] = None) -> str:
-        # existing normalisation (string or AST)
+    def _compute_cache_key(self, model_string, ast=None):
         if self.comparison_mode == "string":
             return _model_key_string(model_string, self.normalise_fn)
         return _model_key_ast(ast, model_string, self.mapper)
 
-    def get(self, model_string: str, ast: Optional[Dict] = None) -> Optional[Dict[str, float]]:
+    def get(self, model_string, ast=None):
         key = self._compute_cache_key(model_string, ast)
         i = self._index.get(key)
         if i is None:
             return None
         row = self._rows[i]
         row["hit_count"] = int(row.get("hit_count", 0)) + 1
-        self._save()  # can be batched or delayed
+        self._save()  # later: batch / delayed flush
         return self._row_to_metrics(row)
 
-    def put(self, model_string: str, metrics: Dict[str, float], ast: Optional[Dict] = None) -> None:
+    def put(self, model_string, metrics, ast=None):
         key = self._compute_cache_key(model_string, ast)
         row = {"model_string": model_string, "cache_key": key, "hit_count": 0, **metrics}
         self._index[key] = len(self._rows)
@@ -57,59 +54,50 @@ class ModelCache:
         self._save()
 ```
 
-**Notes**
-- The CSV file (`model_cache.csv`) stays mostly the same, but **lookups never scan** the whole file; they use the in-memory `dict`.
-- Later we can add a background flush strategy instead of `_save()` on every `get/put`.
-
 ---
 
-### 2. Cheaper equality checks by comparing genomes first
+### 2. Cheaper equality checks via genome comparison
 
-**Goal:** Avoid expensive string/AST comparisons when two individuals are already known to be identical via their **genome**.
+**Goal:** Avoid expensive string/AST comparisons when two individuals already have the same **genome**.
 
-**High-level idea**
-- When evaluating an individual, we know:
-  - `genome` (list/array of codons)
-  - `phenotype` (normalised model string)
-- If another individual has the **same genome**, it will map to the same model; we can skip string or AST comparison.
+**Idea**
+- Within each run, keep a small in‑memory map: `genome_key → (mae, training_time_sec, cache_hit)`.
+- `genome_key` can be `tuple(ind.genome)` or a hash of the genome.
+- If `genome_key` is in this map, reuse its fitness directly without going back through DSL/AST.
 
-**Pseudo-code sketch (conceptual)**
+**Pseudo-code**
 
 ```python
-# During evolution, before calling cache.get(...)
-genome_key = tuple(ind.genome)  # or a hash of the genome
+genome_cache = {}
 
-if genome_key in genome_cache:
-    # We have already evaluated an identical genome this run
-    mae, training_time_sec, cache_hit = genome_cache[genome_key]
-    ind.fitness.values = (mae,)
-else:
-    # Evaluate normally (including cache.get by model_string/AST)
-    mae, training_time_sec, cache_hit = evaluate_torque_mae(...)
-    genome_cache[genome_key] = (mae, training_time_sec, cache_hit)
+def evaluate_with_genome_shortcut(ind, ...):
+    key = tuple(ind.genome)
+    if key in genome_cache:
+        mae, t_sec, hit = genome_cache[key]
+        return mae, t_sec, hit  # no recomputation
+
+    mae, t_sec, hit = evaluate_torque_mae(...)
+    genome_cache[key] = (mae, t_sec, hit)
+    return mae, t_sec, hit
 ```
 
-**How it interacts with existing cache**
-- This is a **local, per-run, in-memory shortcut**:
-  - If genome matches, we reuse within the run.
-  - If it’s a new genome, we still use `ModelCache.get/put` keyed by model string/AST for cross-generation reuse.
+This is **per‑run**; cross‑run reuse is still handled by `ModelCache` keyed on model string/AST.
 
 ---
 
-### 3. In-memory cache during evolution, dump to `model_cache.csv` at the end
+### 3. In‑memory cache during evolution, dump once to `model_cache.csv`
 
-**Goal:** Avoid frequent disk I/O during evolution while still producing a rich CSV at the end with run-level metadata.
+**Goal:** Reduce disk I/O during evolution and add richer metadata (run/gen/seed) to cache rows.
 
-**High-level idea**
-- `ModelCache` keeps all rows in memory during evolution.
-- At the end of the experiment:
-  - We **augment rows** with:
-    - `run_idx`
-    - `gen_idx` (optional, if tracked)
-    - `seed_of_run`
-  - Then write a **single consolidated** `model_cache.csv`.
+**Idea**
+- Run evolution with `ModelCache` purely in memory (no `_save()` on every `get/put`).
+- When the experiment ends, enrich rows with:
+  - `run_idx`
+  - `gen_idx` (if tracked)
+  - `seed_of_run`
+- Then write a single consolidated `model_cache.csv`.
 
-**Pseudo-code sketch**
+**Pseudo-code**
 
 ```python
 class ModelCache:
@@ -120,155 +108,126 @@ class ModelCache:
         self._load()
 
     def put(...):
-        # same as before, but:
+        # as in section 1
         self._rows.append(row)
         self._index[key] = len(self._rows) - 1
         if self.write_on_put:
-            self._save()  # old behaviour
+            self._save()
 
-    def finalize_and_save(self, run_metadata: List[Dict[str, Any]]):
-        \"\"\"Called at end of experiment to enrich and write CSV once.\"\"\"
-        # Option A: run_metadata is a mapping from cache_key to {run_idx, seed, gen_idx}
-        for row in self._rows:
-            meta = run_metadata_lookup(row[\"cache_key\"])  # concept
-            if meta:
-                row.update(meta)  # add run_idx, gen_idx, seed_of_run
+    def finalize_and_save(self):
+        # Rows already carry run/gen/seed metadata in metrics
         self._save()
 ```
 
-**Notes**
-- To know `run_idx` / `gen_idx` per cache row, we need to record this when we call `put()`:
-  - e.g. `metrics[\"run_idx\"] = current_run_idx`, `metrics[\"gen_idx\"] = current_gen`, `metrics[\"seed_of_run\"] = run_seed`.
-- Then `_save()` will naturally include these columns.
+When recording a miss, evolution code can add fields into `metrics` before `put()`:
+
+```python
+metrics["run_idx"] = current_run
+metrics["gen_idx"] = current_gen
+metrics["seed_of_run"] = run_seed
+```
 
 ---
 
-### 4. Configurable cache scope: shared vs per-run
+### 4. Configurable cache scope: per‑experiment vs per‑run
 
-**Goal:** Allow user to choose:
-- **“One cache for the whole experiment”** (current behaviour; maximal reuse).
-- **“One cache per run”** (statistically cleaner: no cross-run reuse).
+**Goal:** Let user choose:
+- **Shared cache across all runs** (max reuse; current behaviour).
+- **Isolated cache per run** (no cross‑run reuse; statistically cleaner).
 
-**Proposed config**
+**Config sketch**
 
 ```jsonc
 \"cache\": {
   \"use_cache\": true,
-  \"comparison_mode\": \"string\",   // existing
-  \"scope\": \"experiment\"         // \"experiment\" | \"per_run\"
+  \"comparison_mode\": \"string\",     // existing
+  \"scope\": \"experiment\"           // \"experiment\" | \"per_run\"
 }
 ```
 
-**GUI/CLI logic (pseudo-code)**
+**Evolution wiring (conceptual)**
 
 ```python
-scope = cache_cfg.get("scope", "experiment")  # default: experiment
+scope = cache_cfg.get("scope", "experiment")
 
 if scope == "experiment":
-    # Create one cache before the run loop
     cache_path = os.path.join(exp_dir, "model_cache.csv")
     model_cache = ModelCache(cache_path=cache_path, ...)
-    for run_idx in range(n_runs):
+    for r in range(n_runs):
         run_one_evolution(..., model_cache=model_cache, ...)
 
 elif scope == "per_run":
-    # Fresh cache per run (no cross-run reuse)
-    model_cache = None  # or base path only
-    for run_idx in range(n_runs):
+    for r in range(n_runs):
         if use_cache:
-            cache_path = os.path.join(exp_dir, f"model_cache_run_{run_idx + 1}.csv")
+            cache_path = os.path.join(exp_dir, f"model_cache_run_{r+1}.csv")
             model_cache_run = ModelCache(cache_path=cache_path, ...)
         else:
             model_cache_run = None
         run_one_evolution(..., model_cache=model_cache_run, ...)
 ```
 
-**Notes**
-- For analysis, we can:
-  - Keep separate `model_cache_run_*.csv` files, or
-  - Aggregate them into a single `model_cache.csv` with added `run_idx`/`seed_of_run` columns.
-
----
-
-These items are **design goals**, not yet wired into the main flow.  
-They should be implemented incrementally, with benchmarks (speedup) and validation (no regressions in fitness or logging).
+Optionally aggregate `model_cache_run_*.csv` into one file with extra `run_idx`/`seed_of_run`.
 
 ---
 
 ### 5. Data sampling for faster fitness evaluation
 
-**Goal:** Reduce fitness computation time by training models on **representative subsets** of the data, and/or co‑evolving the sampling strategy alongside the model.
+**Goal:** Speed up fitness evaluation by training on **representative subsets** of data, and possibly co‑evolving the sampling strategy.
 
-#### 5.1 Static sub‑sampling (fast approximation of fitness)
+#### 5.1 Static sub‑sampling
 
-**High-level idea**
-- Instead of always training on full `X_train, y_train`, use a **fixed fraction** (e.g. 20–50%) or a capped number of samples.
-- Use **stratified sampling** (preserve class balance) to avoid bias.
+**Idea**
+- Use only a fraction of training data per fitness evaluation, e.g. `sample_frac = 0.3` (30% of train).
+- Stratified sampling to preserve label distribution.
 
-**Pseudo-code sketch**
+**Pseudo-code**
 
 ```python
 def sample_train_data(X_train, y_train, sample_frac: float, random_state: int):
     if sample_frac >= 1.0:
         return X_train, y_train
     from sklearn.model_selection import StratifiedShuffleSplit
-
     sss = StratifiedShuffleSplit(n_splits=1, test_size=1 - sample_frac,
                                  random_state=random_state)
-    idx_sample, _ = next(sss.split(X_train, y_train))
-    return X_train[idx_sample], y_train[idx_sample]
+    idx_train, _ = next(sss.split(X_train, y_train))
+    return X_train[idx_train], y_train[idx_train]
 
-# In evaluate_torque_mae (or wrapper before fit)
-X_fit_use, y_fit_use = sample_train_data(X_fit, y_fit, sample_frac=cfg["fitness"]["sample_frac"], random_state=run_seed + gen)
-training_time_sec = measure_training_time(est.fit, X_fit_use, y_fit_use)
+# In evaluator:
+X_fit_sub, y_fit_sub = sample_train_data(X_fit, y_fit, cfg["fitness"]["sample_frac"], run_seed + current_gen)
+training_time_sec = measure_training_time(est.fit, X_fit_sub, y_fit_sub)
 ```
 
-**Notes**
-- `sample_frac` can come from `evolution_config.json`, e.g. `"fitness": { "sample_frac": 0.3 }`.
-- Can be combined with **validation set**: only sample the training side, keep validation full.
+#### 5.2 Co‑evolving sampling policies
 
-#### 5.2 Co-evolving / adaptive sampling
+**Idea**
+- Extend the genome to include **sampling genes**, for example:
+  - `sample_frac` (encoded as small integer → mapped to 0.1..1.0).
+  - `use_smote` flag.
+  - Possibly number of cluster prototypes.
+- During evaluation, decode sampling genes and apply the corresponding policy.
 
-**High-level idea**
-- Treat **sampling policy** as part of the search:
-  - For example, evolve `(model, sampling_params)` together.
-  - Sampling params might include:
-    - `sample_frac` (0.1–1.0)
-    - class weights / oversampling factors
-    - cluster-based prototype count (for summarising data).
-
-**Conceptual encoding**
-
-```text
-Genome = [model_genome_part | sampling_genome_part]
-
-sampling_genome_part:
-  - sample_frac encoded as a small integer (e.g. 1..10 → 0.1..1.0)
-  - maybe a flag for \"use_SMOTE\" or \"use_cluster_prototypes\"
-```
-
-**Pseudo-code sketch (evaluation flow)**
+**Pseudo-code sketch**
 
 ```python
-def decode_sampling_params(ind) -> Dict:
-    # Read sampling-related genes from ind.genome or ind.structure
-    return {"sample_frac": frac, "use_smote": flag, ...}
+def decode_sampling_params(ind) -> Dict[str, Any]:
+    # Read sampling-related genes from ind.genome or structure
+    return {"sample_frac": frac, "use_smote": flag}
 
-def evaluate_torque_mae_with_sampling(ind, points_train, points_val, ...):
-    sampling_cfg = decode_sampling_params(ind)
+def evaluate_torque_mae_with_sampling(ind, ...):
+    params = decode_sampling_params(ind)
     X_train, y_train = points_train
-    X_fit_sub, y_fit_sub = sample_train_data(
+    X_sub, y_sub = sample_train_data(
         X_train, y_train,
-        sample_frac=sampling_cfg.get("sample_frac", 1.0),
+        sample_frac=params.get("sample_frac", 1.0),
         random_state=run_seed + current_gen,
     )
-    # Fit on X_fit_sub, evaluate on validation/test as usual
+    # Fit on X_sub, evaluate on validation/test as usual
 ```
 
-**Notes**
-- Fitness naturally trades off **speed vs accuracy**:
-  - Higher `sample_frac` → slower but more accurate fitness.
-  - Lower `sample_frac` → faster but noisier fitness.
-- Over time, evolution can discover **good models + good sampling policies** that approximate full‑data performance at lower cost.
+Fitness then implicitly optimises both **model architecture** and **sampling strategy**.
 
+---
+
+This backlog is meant as a living document.  
+When you implement one of these items, update this file to reflect the actual design and any deviations from the pseudo‑code above.
 

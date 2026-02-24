@@ -13,6 +13,7 @@ Complete guide to using Torque Mapper and Runner for machine learning ensemble c
 5. [Torque Runner](#torque-runner)
 6. [How They Work](#how-they-work)
 7. [Quick Start Examples](#quick-start-examples)
+8. [Evolution UI & Results Folder](#evolution-ui--results-folder)
 
 ---
 
@@ -586,6 +587,59 @@ python Torque_runner.py --config Torque_runner_config.json
 - Trains model on data
 - Calculates metrics
 - Saves results to `Torque_runner_result.json`
+
+---
+
+## Evolution UI & Results Folder
+
+The **Evolution** page (`3_evolution.py`) runs **Grammatical Evolution** over Torque DSL models and writes results under `results/evolution_YYYYMMDD_HHMMSS/`.
+
+### Evolution result files
+
+For each evolution experiment you will see a folder like:
+
+- `results/evolution_20260224_115736/`
+
+containing:
+
+- `config.json`  
+  Snapshot of evolution config (GA/GE params, dataset, cache settings, seeds).
+
+- `evolution_log.csv`  
+  One row per **(run, generation)** with aggregated statistics:
+  - `run_idx`, `gen`, `invalid`, `valid`, `avg`, `std`, `min`, `max`, `fitness_test`
+  - Structural info: `best_ind_length`, `avg_length`, `best_ind_nodes`, `avg_nodes`, `best_ind_depth`, `avg_depth`, `best_ind_used_codons`, `avg_used_codons`
+  - Timing: `selection_time`, `generation_time`
+  - Cache column: `eval_worker_ids` (which worker/thread evaluated invalid individuals for that generation)
+
+- `averaged_across_runs.csv`  
+  One row per **generation**, averaged over runs:
+  - `gen`, `train_min_mean/std`, `train_avg_mean/std`, `train_max_mean/std`, `test_mean/std`, `invalid_mean`.
+
+- `evolution_individuals.csv`  
+  One row per **individual** per generation, with detailed fields:
+  - `run_idx`, `gen`, `ind_index`
+  - Genome + structure: `genome_length`, `genome`, `phenotype`, `valid`, `invalid`, `nodes`, `depth`, `used_codons`, `num_models`
+  - Fitness & timing: `fitness` (MAE), `training_time_sec`
+  - Cache: `cpu_core_id` (worker index), `cache_hit` (0/1), `cache_hit_ratio` (e.g. 0.5 = 1 of 2 sub‑models hit cache).
+
+- `model_cache.csv`  
+  CSV view of the model fitness cache:
+  - `model_string`, `cache_key`, `hit_count`
+  - Metric columns: `accuracy`, `mae`, `training_time_sec`, and others from `METRIC_COLUMNS`.
+  - `hit_count` = number of times this cached entry was **reused** across the experiment.
+
+- `evolution_live.log`  
+  Human‑readable text log of live evolution progress (runs, generations, best phenotypes).
+
+- `chart.html`  
+  Self‑contained HTML with:
+  - Config summary panel,
+  - Evolution chart (train/test MAE across generations, mean ± std over runs),
+  - Cache analytics panel (Needed vs Actual evals, estimated vs actual time, speedup) when cache is enabled,
+  - Best individual details (from last run).
+
+For a detailed description of all result files and columns, see `RESULTS_GUIDE.md`.
 
 ---
 

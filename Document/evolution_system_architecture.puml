@@ -48,7 +48,7 @@ GE --> TM : map phenotypes
 TM --> Compiler
 Compiler --> Registry
 
-EvoUI --> EvoResults : write config.json,\nrun_*/generations.csv,\naveraged_across_runs.csv,\nchart.html
+EvoUI --> EvoResults : write config.json,\nrun_*/evolution_log.csv,\nrun_*/averaged_across_runs.csv,\nrun_*/evolution_individuals.csv,\nrun_*/model_cache.csv,\nrun_*/evolution_live.log,\nrun_*/chart.html
 
 @enduml
 

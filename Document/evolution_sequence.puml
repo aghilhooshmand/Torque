@@ -30,7 +30,7 @@ loop for each run
 end
 
 EvoUI --> User: Show per-run tables,\nchart and best individual
-EvoUI -> FileSystem: write results/\nconfig.json, generations.csv,\naveraged_across_runs.csv, chart.html
+EvoUI -> FileSystem: write results/\nconfig.json, evolution_log.csv,\naveraged_across_runs.csv,\nevolution_individuals.csv,\nmodel_cache.csv,\nevolution_live.log,\nchart.html
 
 @enduml
 
