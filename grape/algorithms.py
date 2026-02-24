@@ -1155,18 +1155,51 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
         if elite_size > halloffame.maxsize:
             raise ValueError("HALLOFFAME_SIZE should be greater or equal to ELITE_SIZE")
         if points_test:
-            # Include fitness_test (best-on-train) per generation
-            logbook.header = ['gen', 'invalid'] + (stats.fields if stats else []) + ['fitness_test', 'best_ind_length', 'avg_length', 'best_ind_nodes', 'avg_nodes', 'best_ind_depth', 'avg_depth', 'avg_used_codons', 'best_ind_used_codons', 'invalid_count_min', 'invalid_count_avg', 'invalid_count_max', 'invalid_count_std', 'nodes_length_min', 'nodes_length_avg', 'nodes_length_max', 'nodes_length_std', 'structural_diversity', 'selection_time', 'generation_time']
+            # Include fitness_test (best-on-train) per generation; eval_worker_ids = which core ran each invalid ind (when parallel)
+            logbook.header = ['gen', 'invalid'] + (stats.fields if stats else []) + ['fitness_test', 'best_ind_length', 'avg_length', 'best_ind_nodes', 'avg_nodes', 'best_ind_depth', 'avg_depth', 'avg_used_codons', 'best_ind_used_codons', 'invalid_count_min', 'invalid_count_avg', 'invalid_count_max', 'invalid_count_std', 'nodes_length_min', 'nodes_length_avg', 'nodes_length_max', 'nodes_length_std', 'structural_diversity', 'selection_time', 'generation_time', 'eval_worker_ids']
         else:
-            logbook.header = ['gen', 'invalid'] + (stats.fields if stats else []) + ['best_ind_length', 'avg_length', 'best_ind_nodes', 'avg_nodes', 'best_ind_depth', 'avg_depth', 'avg_used_codons', 'best_ind_used_codons', 'invalid_count_min', 'invalid_count_avg', 'invalid_count_max', 'invalid_count_std', 'nodes_length_min', 'nodes_length_avg', 'nodes_length_max', 'nodes_length_std', 'structural_diversity', 'selection_time', 'generation_time']
+            logbook.header = ['gen', 'invalid'] + (stats.fields if stats else []) + ['best_ind_length', 'avg_length', 'best_ind_nodes', 'avg_nodes', 'best_ind_depth', 'avg_depth', 'avg_used_codons', 'best_ind_used_codons', 'invalid_count_min', 'invalid_count_avg', 'invalid_count_max', 'invalid_count_std', 'nodes_length_min', 'nodes_length_avg', 'nodes_length_max', 'nodes_length_std', 'structural_diversity', 'selection_time', 'generation_time', 'eval_worker_ids']
 
     start_gen = time.time()
     # Torque-specific version expects toolbox.evaluate to take a single
     # individual argument; points_train should be closed over in the
     # evaluate function registered in the toolbox.
-    for ind in population:
-        if not ind.fitness.valid:
-            ind.fitness.values = toolbox.evaluate(ind)
+    # When toolbox.map is set (parallel evolution), evaluate invalid individuals in one batch.
+    invalid_inds = [ind for ind in population if not ind.fitness.valid]
+    eval_worker_ids_gen = ''
+    if invalid_inds:
+        if getattr(toolbox, 'map', None) is not None:
+            results = toolbox.map(toolbox.evaluate, invalid_inds)
+            r0 = results[0] if results else None
+            has_extra = r0 is not None and isinstance(r0, (tuple, list)) and len(r0) == 4  # (fit, wid, time, cache_hit)
+            has_worker_ids = r0 is not None and isinstance(r0, (tuple, list)) and len(r0) == 2  # (fit, wid) legacy
+            if has_extra:
+                for ind, r in zip(invalid_inds, results):
+                    ind.fitness.values = r[0]
+                    ind._training_time_sec = r[2]
+                    ind._cache_hit = r[3]
+                    ind._worker_id = r[1]
+                eval_worker_ids_gen = ','.join(str(r[1]) for r in results)
+            elif has_worker_ids:
+                eval_worker_ids_gen = ','.join(str(r[1]) for r in results)
+                for ind, r in zip(invalid_inds, results):
+                    ind.fitness.values = r[0]
+                    ind._training_time_sec = getattr(ind, '_training_time_sec', None)
+                    ind._cache_hit = getattr(ind, '_cache_hit', None)
+                    ind._worker_id = r[1]
+            else:
+                for ind, fit in zip(invalid_inds, results):
+                    ind.fitness.values = fit
+                    ind._training_time_sec = getattr(ind, '_training_time_sec', None)
+                    ind._cache_hit = getattr(ind, '_cache_hit', None)
+                    ind._worker_id = None
+        else:
+            for ind in invalid_inds:
+                res = toolbox.evaluate(ind)
+                ind.fitness.values = (res[0],)
+                ind._training_time_sec = res[1] if len(res) >= 2 else None
+                ind._cache_hit = res[2] if len(res) >= 3 else None
+                ind._worker_id = None
 
     valid0 = [ind for ind in population if not ind.invalid]
     valid = [ind for ind in valid0 if not math.isnan(ind.fitness.values[0])] if valid0 else []
@@ -1244,10 +1277,11 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
                        nodes_length_min=nodes_length_min, nodes_length_avg=nodes_length_avg,
                        nodes_length_max=nodes_length_max, nodes_length_std=nodes_length_std,
                        structural_diversity=structural_diversity,
-                       selection_time=selection_time, generation_time=generation_time)
+                       selection_time=selection_time, generation_time=generation_time,
+                       eval_worker_ids=eval_worker_ids_gen)
     if on_generation_callback is not None:
         best_ind_0 = halloffame.items[0] if halloffame is not None and len(halloffame.items) > 0 else None
-        on_generation_callback(0, best_ind_0, record_gen0)
+        on_generation_callback(0, best_ind_0, record_gen0, population)
     if points_test:
         logbook.record(gen=0, invalid=invalid, **record,
                        fitness_test=fitness_test,
@@ -1260,7 +1294,8 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
                        nodes_length_min=nodes_length_min, nodes_length_avg=nodes_length_avg,
                        nodes_length_max=nodes_length_max, nodes_length_std=nodes_length_std,
                        structural_diversity=structural_diversity,
-                       selection_time=selection_time, generation_time=generation_time)
+                       selection_time=selection_time, generation_time=generation_time,
+                       eval_worker_ids=eval_worker_ids_gen)
     else:
         logbook.record(gen=0, invalid=invalid, **record,
                        best_ind_length=best_ind_length, avg_length=avg_length,
@@ -1272,7 +1307,8 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
                        nodes_length_min=nodes_length_min, nodes_length_avg=nodes_length_avg,
                        nodes_length_max=nodes_length_max, nodes_length_std=nodes_length_std,
                        structural_diversity=structural_diversity,
-                       selection_time=selection_time, generation_time=generation_time)
+                       selection_time=selection_time, generation_time=generation_time,
+                       eval_worker_ids=eval_worker_ids_gen)
     if verbose:
         print(logbook.stream)
 
@@ -1295,9 +1331,41 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
 
         # Evaluate offspring using toolbox.evaluate(ind); training data
         # should be captured in the evaluate closure.
-        for ind in offspring:
-            if not ind.fitness.valid:
-                ind.fitness.values = toolbox.evaluate(ind)
+        invalid_offspring = [ind for ind in offspring if not ind.fitness.valid]
+        eval_worker_ids_gen = ''
+        if invalid_offspring:
+            if getattr(toolbox, 'map', None) is not None:
+                results = toolbox.map(toolbox.evaluate, invalid_offspring)
+                r0 = results[0] if results else None
+                has_extra = r0 is not None and isinstance(r0, (tuple, list)) and len(r0) == 4
+                has_worker_ids = r0 is not None and isinstance(r0, (tuple, list)) and len(r0) == 2
+                if has_extra:
+                    for ind, r in zip(invalid_offspring, results):
+                        ind.fitness.values = r[0]
+                        ind._training_time_sec = r[2]
+                        ind._cache_hit = r[3]
+                        ind._worker_id = r[1]
+                    eval_worker_ids_gen = ','.join(str(r[1]) for r in results)
+                elif has_worker_ids:
+                    eval_worker_ids_gen = ','.join(str(r[1]) for r in results)
+                    for ind, r in zip(invalid_offspring, results):
+                        ind.fitness.values = r[0]
+                        ind._training_time_sec = getattr(ind, '_training_time_sec', None)
+                        ind._cache_hit = getattr(ind, '_cache_hit', None)
+                        ind._worker_id = r[1]
+                else:
+                    for ind, fit in zip(invalid_offspring, results):
+                        ind.fitness.values = fit
+                        ind._training_time_sec = getattr(ind, '_training_time_sec', None)
+                        ind._cache_hit = getattr(ind, '_cache_hit', None)
+                        ind._worker_id = None
+            else:
+                for ind in invalid_offspring:
+                    res = toolbox.evaluate(ind)
+                    ind.fitness.values = (res[0],)
+                    ind._training_time_sec = res[1] if len(res) >= 2 else None
+                    ind._cache_hit = res[2] if len(res) >= 3 else None
+                    ind._worker_id = None
 
         population[:] = offspring
         for i in range(elite_size):
@@ -1371,12 +1439,13 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
                           invalid_count_min=invalid_count_min, invalid_count_avg=invalid_count_avg,
                           invalid_count_max=invalid_count_max, invalid_count_std=invalid_count_std,
                           nodes_length_min=nodes_length_min, nodes_length_avg=nodes_length_avg,
+                          eval_worker_ids=eval_worker_ids_gen,
                           nodes_length_max=nodes_length_max, nodes_length_std=nodes_length_std,
                           structural_diversity=structural_diversity,
                           selection_time=selection_time, generation_time=generation_time)
         if on_generation_callback is not None:
             best_ind_gen = halloffame.items[0] if halloffame is not None and len(halloffame.items) > 0 else None
-            on_generation_callback(gen, best_ind_gen, full_record)
+            on_generation_callback(gen, best_ind_gen, full_record, population)
         if points_test:
             logbook.record(gen=gen, invalid=invalid, **record,
                           fitness_test=fitness_test,
@@ -1389,7 +1458,8 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
                           nodes_length_min=nodes_length_min, nodes_length_avg=nodes_length_avg,
                           nodes_length_max=nodes_length_max, nodes_length_std=nodes_length_std,
                           structural_diversity=structural_diversity,
-                          selection_time=selection_time, generation_time=generation_time)
+                          selection_time=selection_time, generation_time=generation_time,
+                          eval_worker_ids=eval_worker_ids_gen)
         else:
             logbook.record(gen=gen, invalid=invalid, **record,
                           best_ind_length=best_ind_length, avg_length=avg_length,
@@ -1401,7 +1471,8 @@ def ge_eaSimpleWithElitism_torque(population, toolbox, cxpb, mutpb, ngen, elite_
                           nodes_length_min=nodes_length_min, nodes_length_avg=nodes_length_avg,
                           nodes_length_max=nodes_length_max, nodes_length_std=nodes_length_std,
                           structural_diversity=structural_diversity,
-                          selection_time=selection_time, generation_time=generation_time)
+                          selection_time=selection_time, generation_time=generation_time,
+                          eval_worker_ids=eval_worker_ids_gen)
         if verbose:
             print(logbook.stream)
 

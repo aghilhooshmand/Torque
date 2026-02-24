@@ -138,16 +138,18 @@ class DSLMapper:
 
         self.grammar = EXPR
 
-    def _make_literal_node(self, tokens):
-        """Create a dict-based LiteralNode from mapped tokens."""
+    def _make_literal_node(self, *args):
+        """Create a dict-based LiteralNode from mapped tokens. Accepts (tokens) or (instring, loc, tokens) from pyparsing."""
+        tokens = args[-1]
         value = tokens[0]
         return {
             "type": "literal",
             "value": value,
         }
 
-    def _make_call_node(self, tokens):
-        """Create a dict-based CallNode from mapped tokens."""
+    def _make_call_node(self, *args):
+        """Create a dict-based CallNode from mapped tokens. Accepts (tokens) or (instring, loc, tokens) from pyparsing."""
+        tokens = args[-1]
         if len(tokens) == 0:
             return {"type": "call", "name": "", "pos": [], "kw": {}}
 

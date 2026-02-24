@@ -31,6 +31,7 @@ if current_dir not in sys.path:
 
 from dataset_loader import load_dataset_from_config
 from evolution_cache_stats import EvolutionCacheStats
+from evolution_individuals_log import rows_from_population
 from model_cache import ModelCache, measure_training_time
 from evolution_core import run_one_evolution
 from evolution_live_log import LiveLogger
@@ -67,7 +68,7 @@ EVOLUTION_CONFIG_PATH = os.path.join(current_dir, "config", "evolution_config.js
 def _load_evolution_config():
     """Load evolution_config.json; return dict with ga, ge, dataset, bounds. Missing keys use defaults."""
     defaults = {
-        "ga": {"ngen": 50, "pop_size": 100, "elite_size": 1, "halloffame_size": 1, "n_runs": 10, "cxpb": 0.8, "mutpb": 0.05, "tournsize": 7},
+        "ga": {"ngen": 50, "pop_size": 100, "elite_size": 1, "halloffame_size": 1, "n_runs": 10, "n_jobs": 0, "cxpb": 0.8, "mutpb": 0.05, "tournsize": 7},
         "ge": {"min_init_tree_depth": 3, "max_init_tree_depth": 7, "max_tree_depth": 35, "max_wraps": 0, "codon_size": 255, "genome_representation": "list", "codon_consumption": "lazy", "min_genome_len": 20, "max_genome_len": 100, "max_genome_length_cap": 0},
         "dataset": {
             "file": None,
@@ -82,7 +83,7 @@ def _load_evolution_config():
             "use_smote": False,
         },
         "cache": {"use_cache": False, "comparison_mode": "string", "cache_path": "results/model_cache.csv"},
-        "bounds": {"ngen": [1, 200], "pop_size": [4, 500], "elite_size": [0, 10], "halloffame_size": [1, 10], "n_runs": [1, 30], "cxpb": [0.0, 1.0], "mutpb": [0.0, 0.5], "tournsize": [2, 15], "min_init_tree_depth": [1, 20], "max_init_tree_depth": [2, 20], "max_tree_depth": [5, 100], "max_wraps": [0, 10], "codon_size": [2, 512], "min_genome_len": [5, 50], "max_genome_len": [20, 500], "max_genome_length_cap": [0, 2000], "test_size": [0.1, 0.5], "validation_frac": [0.1, 0.4], "base_random_state": [0, 99999]},
+        "bounds": {"ngen": [1, 200], "pop_size": [4, 500], "elite_size": [0, 10], "halloffame_size": [1, 10], "n_runs": [1, 30], "n_jobs": [0, 64], "cxpb": [0.0, 1.0], "mutpb": [0.0, 0.5], "tournsize": [2, 15], "min_init_tree_depth": [1, 20], "max_init_tree_depth": [2, 20], "max_tree_depth": [5, 100], "max_wraps": [0, 10], "codon_size": [2, 512], "min_genome_len": [5, 50], "max_genome_len": [20, 500], "max_genome_length_cap": [0, 2000], "test_size": [0.1, 0.5], "validation_frac": [0.1, 0.4], "base_random_state": [0, 99999]},
     }
     try:
         if os.path.isfile(EVOLUTION_CONFIG_PATH):
@@ -170,6 +171,7 @@ REPORT_COLUMNS = [
     "best_ind_length", "avg_length", "best_ind_nodes", "avg_nodes",
     "best_ind_depth", "avg_depth", "avg_used_codons", "best_ind_used_codons",
     "selection_time", "generation_time",
+    "eval_worker_ids",  # which core ran each invalid individual (when parallel)
 ]
 
 # Display names: only fitness_test -> test_fitness; min stays as min (next to max in table)
@@ -227,6 +229,7 @@ with col1:
     elite_size = st.number_input("Elite size", min_value=_b["elite_size"][0], max_value=_b["elite_size"][1], value=_clamp(_ga["elite_size"], _b["elite_size"][0], _b["elite_size"][1]), step=1)
     halloffame_size = st.number_input("Hall of fame size", min_value=_b["halloffame_size"][0], max_value=_b["halloffame_size"][1], value=_clamp(_ga["halloffame_size"], _b["halloffame_size"][0], _b["halloffame_size"][1]), step=1)
     n_runs = st.number_input("Number of runs (for mean ± STD)", min_value=_b["n_runs"][0], max_value=_b["n_runs"][1], value=_clamp(_ga["n_runs"], _b["n_runs"][0], _b["n_runs"][1]), step=1)
+    n_jobs = st.number_input("Parallel workers (n_jobs)", min_value=_b["n_jobs"][0], max_value=_b["n_jobs"][1], value=_clamp(_ga.get("n_jobs", 0), _b["n_jobs"][0], _b["n_jobs"][1]), step=1, help="0 = auto (use all CPU cores). 1 = sequential. 2+ = that many threads. Speeds up evolution on multi-core servers.")
 
 with col2:
     st.subheader("GA operators")
@@ -347,6 +350,7 @@ if st.button("Start Evolution", type="primary"):
                 "elite_size": int(elite_size),
                 "halloffame_size": int(halloffame_size),
                 "n_runs": int(n_runs),
+                "n_jobs": int(n_jobs),
                 "cxpb": float(cxpb),
                 "mutpb": float(mutpb),
                 "tournsize": int(tournsize),
@@ -444,13 +448,16 @@ if st.button("Start Evolution", type="primary"):
                 inv = record.get("invalid", 0)
                 row[k] = pop_size - inv if inv is not None else None
                 continue
+            if k == "eval_worker_ids":
+                row[k] = record.get(k, "") or ""
+                continue
             v = record.get(k)
             if v is None and k in ("fitness_test", "avg", "std", "min", "max"):
                 v = np.nan
             row[k] = v
         return row
 
-    def on_gen(gen, best_ind, record):
+    def on_gen(gen, best_ind, record, population=None):
         pheno = ""
         best_depth = best_genome_length = best_used_codons = None
         # train_fitness: best individual's training MAE (min = best in population on train data)
@@ -492,6 +499,9 @@ if st.button("Start Evolution", type="primary"):
             "train_fitness": train_fit,
             "test_fitness": test_fit,
         })
+        if population is not None:
+            run_idx_1based = current_run_index[0] + 1
+            individuals_run_gen.extend(rows_from_population(run_idx_1based, gen, population, pop_size))
         with preview_placeholder.container():
             run_num = current_run_index[0] + 1
             fit_label = "validation MAE" if use_validation_fitness else "training MAE"
@@ -505,6 +515,7 @@ if st.button("Start Evolution", type="primary"):
     all_runs_table_rows = []  # list of list of rows: one list per run (for per-run evolution view)
     last_best = None  # best individual from last gen of last run (for "Best individual" block)
     all_cache_stats = []  # one EvolutionCacheStats per run (for cache analytics charts)
+    all_individuals_rows = []  # one row per individual per gen for evolution_individuals.csv
 
     for r in range(n_runs):
         current_run_index[0] = r
@@ -559,15 +570,18 @@ if st.button("Start Evolution", type="primary"):
             points_fitness = None
         points_test = (X_test, y_test)
         running_history.clear()
+        individuals_run_gen = []  # rows for this run (each gen adds from population)
         live_log.log_run_start(r, n_runs, run_seed)
         lb = run_one_evolution(
             grammar, points_train, points_test, params, run_seed,
             on_generation_callback=on_gen, points_fitness=points_fitness,
             model_cache=model_cache, use_cache=use_cache, comparison_mode=comparison_mode,
             cache_stats=cache_stats_run, current_gen_ref=current_gen_ref,
+            n_jobs=n_jobs,
         )
         logbooks.append(lb)
         all_cache_stats.append(cache_stats_run)
+        all_individuals_rows.extend(individuals_run_gen)
         if running_history:
             all_runs_table_rows.append([{**h["row"], "best_phenotype": h.get("best_individual", "")} for h in running_history])
             last_best = running_history[-1]
@@ -710,6 +724,10 @@ if st.button("Start Evolution", type="primary"):
             df_log = pd.DataFrame(combined_rows)
             log_csv_path = os.path.join(exp_dir, "evolution_log.csv")
             df_log.to_csv(log_csv_path, index=False)
+        if all_individuals_rows:
+            df_ind = pd.DataFrame(all_individuals_rows)
+            ind_csv_path = os.path.join(exp_dir, "evolution_individuals.csv")
+            df_ind.to_csv(ind_csv_path, index=False)
         
         # Save averaged table (across runs, per generation) for charts
         avg_rows = []
@@ -731,9 +749,10 @@ if st.button("Start Evolution", type="primary"):
         avg_csv_path = os.path.join(exp_dir, "averaged_across_runs.csv")
         df_avg.to_csv(avg_csv_path, index=False)
         
-        # Save final chart as HTML with 3 panels: config, chart, best individual
+        # Save final chart as HTML with panels: config, evolution chart, cache analytics (if available), best individual
         try:
             import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
             from html import escape as html_escape
 
             fig = go.Figure()
@@ -827,6 +846,90 @@ if st.button("Start Evolution", type="primary"):
 
             chart_div = fig.to_html(full_html=False, include_plotlyjs="cdn")
 
+            # Optional: cache analytics chart (same as section 6 in the Streamlit UI)
+            cache_chart_div = ""
+            if cache_needed_mean is not None and cache_actual_mean is not None and len(gens) > 0:
+                try:
+                    fig_cache = make_subplots(
+                        rows=2,
+                        cols=1,
+                        subplot_titles=(
+                            "Evaluations per generation (mean over runs)",
+                            "Time and speedup per generation",
+                        ),
+                        vertical_spacing=0.12,
+                    )
+                    fig_cache.add_trace(
+                        go.Scatter(
+                            x=gens,
+                            y=cache_needed_mean,
+                            name="Needed",
+                            line=dict(color="blue", width=2),
+                            mode="lines",
+                        ),
+                        row=1,
+                        col=1,
+                    )
+                    fig_cache.add_trace(
+                        go.Scatter(
+                            x=gens,
+                            y=cache_actual_mean,
+                            name="Actual (run)",
+                            line=dict(color="green", width=2),
+                            mode="lines",
+                        ),
+                        row=1,
+                        col=1,
+                    )
+                    fig_cache.update_yaxes(title_text="Count", row=1, col=1)
+
+                    fig_cache.add_trace(
+                        go.Scatter(
+                            x=gens,
+                            y=cache_time_est_mean,
+                            name="Time est. (no cache)",
+                            line=dict(color="orange", width=2),
+                            mode="lines",
+                        ),
+                        row=2,
+                        col=1,
+                    )
+                    fig_cache.add_trace(
+                        go.Scatter(
+                            x=gens,
+                            y=cache_time_actual_mean,
+                            name="Time actual (with cache)",
+                            line=dict(color="red", width=2),
+                            mode="lines",
+                        ),
+                        row=2,
+                        col=1,
+                    )
+                    speedup_ok = np.nan_to_num(np.asarray(cache_speedup), nan=0.0)
+                    fig_cache.add_trace(
+                        go.Scatter(
+                            x=gens,
+                            y=speedup_ok,
+                            name="Speedup (est/actual)",
+                            line=dict(color="purple", width=2, dash="dash"),
+                            mode="lines",
+                        ),
+                        row=2,
+                        col=1,
+                    )
+                    fig_cache.update_yaxes(title_text="Time (s) / Speedup", row=2, col=1)
+                    fig_cache.update_xaxes(title_text="Generation", row=2, col=1)
+                    fig_cache.update_layout(
+                        height=500,
+                        showlegend=True,
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                        template="plotly_white",
+                    )
+                    # Do not include plotlyjs again; main chart already includes it
+                    cache_chart_div = fig_cache.to_html(full_html=False, include_plotlyjs=False)
+                except Exception:
+                    cache_chart_div = ""
+
             # Panel 1: config
             dataset_source = _ds.get("file") or (f"UCI id={_ds.get('uci_id')}" if _ds.get("uci_id") is not None else "N/A")
             dataset_target = _ds.get("target_column")
@@ -881,6 +984,7 @@ if st.button("Start Evolution", type="primary"):
     <h2>Evolution Chart</h2>
     {chart_div}
   </div>
+  {('<div class="panel">\\n    <h2>Cache analytics (evaluations and speedup)</h2>\\n    ' + cache_chart_div + '\\n  </div>') if cache_chart_div else ''}
   <div class="panel">
     <h2>Best Individual (last run)</h2>
     <pre>{html_escape(best_text)}</pre>

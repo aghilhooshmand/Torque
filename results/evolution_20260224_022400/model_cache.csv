@@ -1,0 +1,6 @@
+model_string,cache_key,hit_count,accuracy,mae,training_time_sec
+vote ( NB ( var_smoothing = 1e-7 ) ),vote ( NB ( var_smoothing = 1e-7 ) ),0,0.953125,0.046875,0.057982163001724984
+"bag ( SVM ( C = 50 , kernel = poly ) )","bag ( SVM ( C = 50 , kernel = poly ) )",0,0.953125,0.046875,0.08203677300480194
+vote ( RF ( max_depth = 10 ) ),vote ( RF ( max_depth = 10 ) ),0,0.921875,0.078125,0.3170601509991684
+"bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )","bag ( KNN ( n_neighbors = 50 ) ; n_estimators = 50 , max_features = 1.0 )",0,0.953125,0.046875,0.13986293999914778
+ada ( XGB ( max_depth = 2 ) ),ada ( XGB ( max_depth = 2 ) ),0,0.625,0.375,1.4172025840016431

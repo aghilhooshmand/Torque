@@ -1,6 +1,6 @@
 {
   "torque_command": "vote(LR(C=1.0), DT(max_depth=5); voting=\"hard\")",
-  "timestamp": "2026-02-23T15:31:37.276975",
+  "timestamp": "2026-02-24T11:57:10.225981",
   "variable_name": "estimator",
   "ast": {
     "type": "call",

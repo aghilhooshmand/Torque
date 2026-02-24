@@ -1,6 +1,7 @@
 import copy
 import os
 import sys
+import threading
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
@@ -8,6 +9,7 @@ from sklearn.metrics import accuracy_score
 
 from compiler import compile_ast_to_estimator
 from evolution_cache_stats import EvolutionCacheStats
+from evolution_parallel import parallel_evaluation, resolve_n_jobs
 from model_cache import ModelCache, measure_training_time
 from grape.grape import (
     Grammar,
@@ -40,7 +42,7 @@ def evaluate_torque_mae(
     cache_stats: Optional[EvolutionCacheStats] = None,
     current_gen_ref: Optional[List[int]] = None,
 ):
-    """Return (MAE,) for this individual. Lower is better.
+    """Return (mae, training_time_sec, cache_hit) for this individual. Lower mae is better.
 
     If fit_points is None: fit and score on `points` (training fitness).
     If fit_points is given: fit on fit_points (train), score on `points` (e.g. test).
@@ -51,13 +53,13 @@ def evaluate_torque_mae(
     X_score, y_score = points
     phenotype = getattr(ind, "phenotype", None)
     if not phenotype:
-        return (worst_mae,)
+        return (worst_mae, 0.0, False)
     try:
         cmd = normalise_torque_phenotype(phenotype)
     except Exception:
-        return (worst_mae,)
+        return (worst_mae, 0.0, False)
     if not cmd or "<" in cmd:
-        return (worst_mae,)
+        return (worst_mae, 0.0, False)
     try:
         ast = mapper.dsl_to_ast(cmd)
         if use_cache and model_cache is not None:
@@ -65,7 +67,7 @@ def evaluate_torque_mae(
             if cached is not None and "mae" in cached:
                 if cache_stats is not None:
                     cache_stats.record(gen, cache_hit=True, training_time=0.0)
-                return (cached["mae"],)
+                return (cached["mae"], 0.0, True)
         est = compile_ast_to_estimator(ast)
         if fit_points is not None:
             X_fit, y_fit = fit_points
@@ -82,9 +84,9 @@ def evaluate_torque_mae(
             )
         if cache_stats is not None:
             cache_stats.record(gen, cache_hit=False, training_time=training_time_sec)
-        return (mae,)
+        return (mae, training_time_sec, False)
     except Exception:
-        return (worst_mae,)
+        return (worst_mae, 0.0, False)
 
 
 def run_one_evolution(
@@ -100,8 +102,10 @@ def run_one_evolution(
     comparison_mode: str = "string",
     cache_stats: Optional[EvolutionCacheStats] = None,
     current_gen_ref: Optional[List[int]] = None,
+    n_jobs: Optional[int] = 1,
 ):
     """Run GE for one run; return logbook. Fitness = MAE (lower is better).
+    If n_jobs > 1, invalid individuals are evaluated in parallel (thread pool).
     If points_fitness is set: fitness = MAE on points_fitness (fit on points_train). Else: fitness = MAE on points_train.
     If use_cache: lookup/save fitness by model+params only (no data in key).
     """
@@ -134,8 +138,8 @@ def run_one_evolution(
     mapper = TorqueMapper()
 
     def evaluate(ind, points=None):
+        # Returns (mae, training_time_sec, cache_hit). Caller uses [0] for fitness.
         if points is not None:
-            # Test set: fit on train, score on test (no cache)
             fit_on_train = points is points_test
             return evaluate_torque_mae(
                 ind,
@@ -143,7 +147,6 @@ def run_one_evolution(
                 mapper,
                 fit_points=points_train if fit_on_train else None,
             )
-        # Fitness evaluation: use validation set if provided, else training set (with optional cache)
         if points_fitness is not None:
             return evaluate_torque_mae(
                 ind,
@@ -203,27 +206,42 @@ def run_one_evolution(
     stats.register("max", np.nanmax)
     hof = tools.HallOfFame(halloffame_size)
 
-    _, logbook = grape_algorithms.ge_eaSimpleWithElitism_torque(
-        population,
-        toolbox,
-        cxpb,
-        mutpb,
-        ngen,
-        elite_size,
-        bnf_grammar=grammar,
-        codon_size=codon_size,
-        max_tree_depth=max_tree_depth,
-        max_genome_length=max_genome_length,
-        points_train=points_train,
-        points_test=points_test,
-        codon_consumption=codon_consumption,
-        report_items=[],
-        genome_representation=genome_representation,
-        stats=stats,
-        halloffame=hof,
-        verbose=False,
-        on_generation_callback=on_generation_callback,
-    )
+    n_workers = resolve_n_jobs(n_jobs)
+    worker_id_map = {}  # thread ident -> worker index (0, 1, ...) for eval_worker_ids in log
+
+    def evaluate_with_worker_id(ind, points=None):
+        res = evaluate(ind, points)  # (mae, training_time_sec, cache_hit)
+        if points is not None:
+            return res
+        tid = threading.current_thread().ident
+        wid = worker_id_map.setdefault(tid, len(worker_id_map))
+        return ((res[0],), wid, res[1], res[2])  # (fitness_tuple, worker_id, training_time, cache_hit)
+
+    with parallel_evaluation(n_workers) as (map_func, _executor):
+        if map_func is not None:
+            toolbox.register("map", map_func)
+            toolbox.register("evaluate", lambda ind, points=None: evaluate_with_worker_id(ind, points))
+        _, logbook = grape_algorithms.ge_eaSimpleWithElitism_torque(
+            population,
+            toolbox,
+            cxpb,
+            mutpb,
+            ngen,
+            elite_size,
+            bnf_grammar=grammar,
+            codon_size=codon_size,
+            max_tree_depth=max_tree_depth,
+            max_genome_length=max_genome_length,
+            points_train=points_train,
+            points_test=points_test,
+            codon_consumption=codon_consumption,
+            report_items=[],
+            genome_representation=genome_representation,
+            stats=stats,
+            halloffame=hof,
+            verbose=False,
+            on_generation_callback=on_generation_callback,
+        )
 
     return logbook
 

@@ -28,6 +28,7 @@ if ROOT not in sys.path:
 from dataset_loader import load_dataset_from_config
 from evolution_cache_stats import EvolutionCacheStats
 from evolution_core import run_one_evolution
+from evolution_individuals_log import rows_from_population
 from evolution_live_log import LiveLogger
 from model_cache import ModelCache
 from grape.grape import Grammar
@@ -77,6 +78,7 @@ def main():
     validation_frac = float(ds.get("validation_frac", 0.2))
     base_seed = int(ds["base_random_state"])
     n_runs = int(ga["n_runs"])
+    n_jobs = int(ga.get("n_jobs", 0))  # 0 = auto (use all CPU cores)
 
     # Optional extras that the GUI can set but are also config-driven for CLI
     preprocessing = ds.get("preprocessing", "none")
@@ -154,6 +156,7 @@ def main():
         "best_ind_used_codons",
         "selection_time",
         "generation_time",
+        "eval_worker_ids",
     ]
 
     def _row_from_record(record, pop_size_local):
@@ -162,6 +165,9 @@ def main():
             if k == "valid":
                 inv = record.get("invalid", 0)
                 row[k] = pop_size_local - inv if inv is not None else None
+                continue
+            if k == "eval_worker_ids":
+                row[k] = record.get(k, "") or ""
                 continue
             v = record.get(k)
             if v is None and k in ("fitness_test", "avg", "std", "min", "max"):
@@ -173,6 +179,7 @@ def main():
     all_runs_table_rows = []
     last_best = None
     all_cache_stats = []
+    all_individuals_rows = []
     current_gen_ref = [0]
 
     for r in range(n_runs):
@@ -231,9 +238,10 @@ def main():
 
         current_gen_ref[0] = 0
         cache_stats_run = EvolutionCacheStats()
+        individuals_run_gen = []
         live_log.log_run_start(r, n_runs, run_seed)
 
-        def on_gen(gen, best_ind, record):
+        def on_gen(gen, best_ind, record, population=None):
             nonlocal last_best
             pheno = ""
             best_depth = best_genome_length = best_used_codons = None
@@ -285,6 +293,8 @@ def main():
                 }
             )
             last_best = running_history[-1]
+            if population is not None:
+                individuals_run_gen.extend(rows_from_population(r + 1, gen, population, params["pop_size"]))
 
         lb = run_one_evolution(
             grammar,
@@ -299,9 +309,11 @@ def main():
             comparison_mode=comparison_mode,
             cache_stats=cache_stats_run,
             current_gen_ref=current_gen_ref,
+            n_jobs=n_jobs,
         )
         logbooks.append(lb)
         all_cache_stats.append(cache_stats_run)
+        all_individuals_rows.extend(individuals_run_gen)
         if running_history:
             all_runs_table_rows.append(
                 [
@@ -407,6 +419,11 @@ def main():
         df_log = pd.DataFrame(combined_rows)
         log_csv_path = os.path.join(out_dir, "evolution_log.csv")
         df_log.to_csv(log_csv_path, index=False)
+    if all_individuals_rows:
+        df_ind = pd.DataFrame(all_individuals_rows)
+        ind_csv_path = os.path.join(out_dir, "evolution_individuals.csv")
+        df_ind.to_csv(ind_csv_path, index=False)
+        print(f"Individuals log saved: {ind_csv_path}")
 
     # Save averaged table (across runs, per generation)
     avg_rows = []
